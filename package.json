@@ -1,0 +1,20 @@
+{
+  "name": "sam_archives",
+  "version": "1.0.0",
+  "description": "",
+  "main": "migrationToMongo.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "assert": "^2.0.0",
+    "csvtojson": "^2.0.10",
+    "lodash": "^4.17.15",
+    "mongodb": "^3.5.7",
+    "slugify": "^1.4.0",
+    "tiptap": "^1.27.1",
+    "vue": "^2.6.11"
+  }
+}
