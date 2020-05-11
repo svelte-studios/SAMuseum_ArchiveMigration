@@ -28,6 +28,8 @@ const getCsvFiles = source =>
     .map(dirent => dirent.name);
 
 // Connection URL
+// const url =
+//   "mongodb+srv://jake:nSTpXARKE48oeRCU@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
 const url = "mongodb://localhost:27017";
 // Database Name
 const dbName = "sam_website";
