@@ -1,8 +1,8 @@
-const { forEach } = require("lodash");
+const { forEach, find } = require("lodash");
 const MongoClient = require("mongodb").MongoClient;
 const assert = require("assert");
 const MIGRATION_DIR = process.cwd() + "/HDMS/"; //process.cwd() + "/mongo/archiveMigration/"
-const fs = require("fs");
+const { readFile, readdirSync } = require("fs");
 const awsSDK = require("aws-sdk");
 require("dotenv").config();
 
@@ -19,12 +19,12 @@ awsSDK.config.update({
 
 const s3 = new awsSDK.S3();
 
-const uploadImage = function(fileBuffer, id) {
+const uploadImage = function(fileBuffer, provenanceId, id) {
   const uploadImagePromise = new Promise((resolve, reject) => {
     s3.putObject(
       {
         Bucket: S3_BUCKET_NAME,
-        Key: `images/archives/${id}`,
+        Key: `images/archives/${provenanceId}/${id}`,
         Body: fileBuffer,
         ACL: "public-read",
         ContentEncoding: "base64"
@@ -42,26 +42,55 @@ const uploadImage = function(fileBuffer, id) {
 };
 
 function exportImages(provenance) {
-  fs.readFile(
+  readFile(
     `${MIGRATION_DIR}${provenance.PROV_ID}/web/images/hero.jpg`,
     (err, heroImage) => {
       if (heroImage) {
         console.log("exportImages -> heroUrl", `${provenance.PROV_ID}_hero`);
-        uploadImage(heroImage, `${provenance.PROV_ID}_hero.jpg`);
-      }
-      if (provenance.HTMLPHOTOS && provenance.HTMLPHOTOS.length) {
-        forEach(provenance.HTMLPHOTOS, image => {
-          if (!image || !image.JPG) return;
-          const imageUrl = `${MIGRATION_DIR}${provenance.PROV_ID}/web/${image.JPG}`;
-          fs.readFile(imageUrl, (err, imageFile) => {
-            uploadImage(imageFile, image.JPG);
-            console.log("exportImages -> imageUrl", imageUrl);
-          });
-        });
+        uploadImage(
+          heroImage,
+          provenance.PROV_ID,
+          `${provenance.PROV_ID}_hero.jpg`
+        );
       }
     }
   );
+  const documentationFiles = readdirSync(
+    `${MIGRATION_DIR}${provenance.PROV_ID}/Documentation`,
+    { withFileTypes: true }
+  )
+    .filter(dirent => dirent.isFile())
+    .map(dirent => dirent.name);
+  console.log("exportImages -> documentationFiles", documentationFiles);
+  const provPageImage = find(documentationFiles, file =>
+    file.match(/^archives/)
+  );
+  console.log("exportImages -> provPageImage", provPageImage);
+  if (provPageImage) {
+    readFile(
+      `${MIGRATION_DIR}${provenance.PROV_ID}/Documentation/${provPageImage}`,
+      (err, imageFile) => {
+        uploadImage(
+          imageFile,
+          provenance.PROV_ID,
+          `${provenance.PROV_ID}_archives.jpg`
+        );
+      }
+    );
+  }
+  // if (provenance.HTMLPHOTOS && provenance.HTMLPHOTOS.length) {
+  //   forEach(provenance.HTMLPHOTOS, image => {
+  //     if (!image || !image.JPG) return;
+  //     const imageUrl = `${MIGRATION_DIR}${provenance.PROV_ID}/web/${image.JPG}`;
+  //     readFile(imageUrl, (err, imageFile) => {
+  //       uploadImage(imageFile, image.JPG);
+  //       console.log("exportImages -> imageUrl", imageUrl);
+  //     });
+  //   });
+  // }
 }
+// }
+// );
 
 // const url =
 //   "mongodb+srv://jake:nSTpXARKE48oeRCU@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
@@ -79,7 +108,7 @@ client.connect(function(err) {
 
   return db
     .collection("Archive_provenance")
-    .find({ PROV_ID: "AA207" })
+    .find({ PROV_ID: "AA1" })
     .toArray()
     .then(provenances => {
       console.log("provenances length", provenances.length);

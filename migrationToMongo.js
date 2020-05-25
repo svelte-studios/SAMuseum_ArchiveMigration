@@ -99,6 +99,9 @@ client.connect(function(err) {
         inventory = map(inventory, i => {
           return {
             ...i,
+            _id: slugify(i.CONTROL.replace(/\//, "-"), {
+              lower: true
+            }),
             TITLEDET: i.TITLEDET
               ? "<p>" +
                 i.TITLEDET.replace(/\n{2,}/g, "</p><p>").replace(
@@ -108,22 +111,27 @@ client.connect(function(err) {
                 "</p>"
               : "",
             slug: `/collection/archives/provenances/series/items/${slugify(
-              i.ITEM_ID.replace(/\//, "-"),
+              i.CONTROL.replace(/\//, "-"),
               {
                 lower: true
               }
             )}`,
-            slugifiedId: slugify(i.ITEM_ID.replace(/\//, "-"), {
+            // slugifiedId: slugify(i.CONTROL.replace(/\//, "-"), {
+            //   lower: true
+            // }),
+            slugifiedSeriesId: slugify(i.SERIES_ID.replace(/\//, "-"), {
               lower: true
             }),
-            slugifiedSeriesId: slugify(i.SERIES_ID.replace(/\//, "-"), {
+            slugifiedProvId: slugify(i.PROV_ID.replace(/\//, "-"), {
               lower: true
             })
           };
         });
 
         doc.INVENTORY = map(doc.INVENTORY, i => {
-          return i.ITEM_ID;
+          return slugify(i.CONTROL.replace(/\//, "-"), {
+            lower: true
+          });
         });
 
         doc.SERIES = map(doc.SERIES, i => {
@@ -133,7 +141,7 @@ client.connect(function(err) {
         const inventoryOps = map(inventory, i => {
           return {
             updateOne: {
-              filter: { _id: i.ITEM_ID },
+              filter: { _id: i._id },
               update: {
                 $set: { ...pickBy(i, identity) }
               },
