@@ -44,7 +44,10 @@ client.connect(function(err) {
   const db = client.db(dbName);
   directoryPromise = [];
   forEach(getDirectories(MIGRATION_DIR), folder => {
-    if (folder.toLowerCase().substr(0, 2) === "aa") {
+    if (
+      folder.toLowerCase().substr(0, 2) === "aa" ||
+      folder.toLowerCase().substr(0, 4) === "sama"
+    ) {
       directoryPromise.push(readAndExecute(folder));
     }
   });
@@ -68,6 +71,30 @@ client.connect(function(err) {
               "</p>";
           });
         }
+
+        if (
+          doc.TYPE === "Person" &&
+          doc.PROV_NAME &&
+          !doc.PROV_NAME.match(/,/g)
+        ) {
+          const splitName = doc.PROV_NAME.split(" ");
+          if (splitName && splitName.length > 1) {
+            const lastName = splitName[splitName.length - 1];
+            if (lastName.match(/^[a-z]+.*[a-z]+$/i)) {
+              console.log("lastName", lastName);
+              const otherNames = splitName;
+              otherNames.splice(splitName.length - 1, 1);
+              console.log("otherNames", otherNames);
+              doc.formattedName = `${lastName}, ${otherNames.join(" ")}`;
+            }
+          }
+        }
+
+        doc.firstLetter = doc.formattedName
+          ? doc.formattedName.substring(0, 1)
+          : doc.PROV_NAME
+          ? doc.PROV_NAME.substring(0, 1)
+          : "";
 
         let inventory = doc.INVENTORY;
         let series = doc.SERIES;
@@ -167,8 +194,7 @@ client.connect(function(err) {
             .collection("Archive_provenance")
             .insertOne(
               {
-                ...pickBy(doc, identity),
-                firstLetter: doc.PROV_NAME ? doc.PROV_NAME.substring(0, 1) : ""
+                ...pickBy(doc, identity)
               },
               {
                 w: "majority",

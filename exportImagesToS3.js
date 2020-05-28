@@ -2,7 +2,7 @@ const { forEach, find } = require("lodash");
 const MongoClient = require("mongodb").MongoClient;
 const assert = require("assert");
 const MIGRATION_DIR = process.cwd() + "/HDMS/"; //process.cwd() + "/mongo/archiveMigration/"
-const { readFile, readdirSync } = require("fs");
+const { readFile, readdirSync, existsSync } = require("fs");
 const awsSDK = require("aws-sdk");
 require("dotenv").config();
 
@@ -42,41 +42,42 @@ const uploadImage = function(fileBuffer, provenanceId, id) {
 };
 
 function exportImages(provenance) {
+  const folderName = provenance.PROV_ID.replace(/\s/g, "");
+  console.log("exportImages -> folderName", folderName);
   readFile(
-    `${MIGRATION_DIR}${provenance.PROV_ID}/web/images/hero.jpg`,
+    `${MIGRATION_DIR}${folderName}/web/images/hero.jpg`,
     (err, heroImage) => {
       if (heroImage) {
-        console.log("exportImages -> heroUrl", `${provenance.PROV_ID}_hero`);
         uploadImage(
           heroImage,
           provenance.PROV_ID,
-          `${provenance.PROV_ID}_hero.jpg`
+          `${provenance.PROV_ID}_hero`
         );
       }
     }
   );
-  const documentationFiles = readdirSync(
-    `${MIGRATION_DIR}${provenance.PROV_ID}/Documentation`,
-    { withFileTypes: true }
-  )
-    .filter(dirent => dirent.isFile())
-    .map(dirent => dirent.name);
-  console.log("exportImages -> documentationFiles", documentationFiles);
-  const provPageImage = find(documentationFiles, file =>
-    file.match(/^archives/)
-  );
-  console.log("exportImages -> provPageImage", provPageImage);
-  if (provPageImage) {
-    readFile(
-      `${MIGRATION_DIR}${provenance.PROV_ID}/Documentation/${provPageImage}`,
-      (err, imageFile) => {
-        uploadImage(
-          imageFile,
-          provenance.PROV_ID,
-          `${provenance.PROV_ID}_archives.jpg`
-        );
-      }
+  if (existsSync(`${MIGRATION_DIR}${folderName}/Documentation`)) {
+    const documentationFiles = readdirSync(
+      `${MIGRATION_DIR}${folderName}/Documentation`,
+      { withFileTypes: true }
+    )
+      .filter(dirent => dirent.isFile())
+      .map(dirent => dirent.name);
+    const provPageImage = find(documentationFiles, file =>
+      file.match(/^archives/)
     );
+    if (provPageImage) {
+      readFile(
+        `${MIGRATION_DIR}${folderName}/Documentation/${provPageImage}`,
+        (err, imageFile) => {
+          uploadImage(
+            imageFile,
+            provenance.PROV_ID,
+            `${provenance.PROV_ID}_archives`
+          );
+        }
+      );
+    }
   }
   // if (provenance.HTMLPHOTOS && provenance.HTMLPHOTOS.length) {
   //   forEach(provenance.HTMLPHOTOS, image => {
@@ -108,7 +109,9 @@ client.connect(function(err) {
 
   return db
     .collection("Archive_provenance")
-    .find({ PROV_ID: "AA1" })
+    .find({
+      $or: [{ PROV_ID: { $regex: /^A/i } }, { PROV_ID: { $regex: /^SAMA/i } }]
+    })
     .toArray()
     .then(provenances => {
       console.log("provenances length", provenances.length);
