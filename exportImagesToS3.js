@@ -41,6 +41,19 @@ const uploadImage = function(fileBuffer, provenanceId, id) {
   });
 };
 
+function exportTindaleImages() {
+  readFile(`${MIGRATION_DIR}/../tindaleTribes.jpg`, (err, tindaleImage) => {
+    if (tindaleImage) {
+      uploadImage(tindaleImage, "tribes", "tindale_tribes");
+    }
+  });
+  readFile(`${MIGRATION_DIR}/../boundariesMap.jpg`, (err, mapImage) => {
+    if (mapImage) {
+      uploadImage(mapImage, "tribes", "boundaries_map");
+    }
+  });
+}
+
 function exportImages(provenance) {
   const folderName = provenance.PROV_ID.replace(/\s/g, "");
   console.log("exportImages -> folderName", folderName);
@@ -116,6 +129,9 @@ client.connect(function(err) {
     .then(provenances => {
       console.log("provenances length", provenances.length);
       let promiseChain = Promise.resolve();
+      promiseChain = promiseChain.then(() => {
+        exportTindaleImages();
+      });
       forEach(provenances, provenance => {
         promiseChain = promiseChain.then(() => {
           exportImages(provenance);

@@ -1,10 +1,37 @@
-const { forEach, map, toLower, find, pickBy, identity } = require("lodash");
+const { forEach, map, pickBy, identity } = require("lodash");
 const MongoClient = require("mongodb").MongoClient;
 const assert = require("assert");
 const MIGRATION_DIR = process.cwd() + "/HDMS/"; //process.cwd() + "/mongo/archiveMigration/"
 const { readdirSync } = require("fs");
 const csv = require("csvtojson");
 const slugify = require("slugify");
+
+const formatsMap = {
+  PUBBOOK: "Books",
+  PUBJOURNAL: "Published Papers or Articles",
+  PUBPAPER: "Newspaper Clippings",
+  NEWSCLIPP: "Newspaper Clippings",
+  CORRESPOND: "General Correspondence",
+  MAPS: "Maps",
+  PHOTONEGF: "Photographic Film Negatives",
+  PHOTONEGG: "Photographic Glass Negatives",
+  PHOTOLOOSE: "Loose Photographic Prints",
+  PUBGENERAL: "General Publications",
+  PHOTOMOUNT: "Mounted Photographic Prints",
+  PHOTOCOPIE: "Photocopied Documents",
+  ARTWORKSM: "Mounted Works of Art",
+  DRAWINGS: "Drawings",
+  SKETCHES: "Sketches",
+  NUMERICDAT: "Numeric Data",
+  DIARIES: "Diaries",
+  PLANS: "Plans",
+  NOTEBOOKS: "Notebooks",
+  NOTESLOOSE: "Loose Notes",
+  TABLES: "Tables of data",
+  DIAGRAMS: "Diagrams",
+  INDEXES: "Indexes"
+};
+
 const MAIN_FILES = [
   "SERIES",
   "PROVENANCE",
@@ -15,6 +42,19 @@ const MAIN_FILES = [
   "HTMLPHOTOS",
   "REFERENCES"
 ];
+
+const constructFormats = item => {
+  let searchField = "";
+  forEach(formatsMap, (format, key) => {
+    console.log("searchField", searchField);
+    if (item[key] === "1")
+      if (searchField) searchField = searchField.concat(`, ${format}`);
+      else searchField = format;
+  });
+  console.log("searchField", searchField);
+  return searchField;
+};
+
 const getDirectories = source =>
   readdirSync(source, { withFileTypes: true })
     .filter(dirent => dirent.isDirectory())
@@ -81,10 +121,8 @@ client.connect(function(err) {
           if (splitName && splitName.length > 1) {
             const lastName = splitName[splitName.length - 1];
             if (lastName.match(/^[a-z]+.*[a-z]+$/i)) {
-              console.log("lastName", lastName);
               const otherNames = splitName;
               otherNames.splice(splitName.length - 1, 1);
-              console.log("otherNames", otherNames);
               doc.formattedName = `${lastName}, ${otherNames.join(" ")}`;
             }
           }
@@ -129,6 +167,7 @@ client.connect(function(err) {
             _id: slugify(i.CONTROL.replace(/\//, "-"), {
               lower: true
             }),
+            formats: constructFormats(i),
             TITLEDET: i.TITLEDET
               ? "<p>" +
                 i.TITLEDET.replace(/\n{2,}/g, "</p><p>").replace(
