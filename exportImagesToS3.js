@@ -54,13 +54,17 @@ function exportTindaleImages() {
   });
 }
 
-function exportImages(provenance) {
+function exportImages(db, provenance) {
   const folderName = provenance.PROV_ID.replace(/\s/g, "");
+  let hasArchiveImage = false;
+  let hasHeroImage = false;
   console.log("exportImages -> folderName", folderName);
   readFile(
     `${MIGRATION_DIR}${folderName}/web/images/hero.jpg`,
     (err, heroImage) => {
       if (heroImage) {
+        console.log("exportImages -> heroImage", heroImage);
+        hasHeroImage = true;
         uploadImage(
           heroImage,
           provenance.PROV_ID,
@@ -80,6 +84,7 @@ function exportImages(provenance) {
       file.match(/^archives/)
     );
     if (provPageImage) {
+      hasArchiveImage = true;
       readFile(
         `${MIGRATION_DIR}${folderName}/Documentation/${provPageImage}`,
         (err, imageFile) => {
@@ -91,6 +96,15 @@ function exportImages(provenance) {
         }
       );
     }
+  }
+
+  if (hasArchiveImage || hasHeroImage) {
+    return db
+      .collection("Archive_provenance")
+      .updateOne(
+        { _id: provenance._id },
+        { $set: { hasArchiveImage, hasHeroImage } }
+      );
   }
   // if (provenance.HTMLPHOTOS && provenance.HTMLPHOTOS.length) {
   //   forEach(provenance.HTMLPHOTOS, image => {
@@ -123,7 +137,8 @@ client.connect(function(err) {
   return db
     .collection("Archive_provenance")
     .find({
-      $or: [{ PROV_ID: { $regex: /^A/i } }, { PROV_ID: { $regex: /^SAMA/i } }]
+      // $or: [{ PROV_ID: { $regex: /^A/i } }, { PROV_ID: { $regex: /^SAMA/i } }]
+      PROV_ID: "AA1"
     })
     .toArray()
     .then(provenances => {
@@ -134,7 +149,7 @@ client.connect(function(err) {
       });
       forEach(provenances, provenance => {
         promiseChain = promiseChain.then(() => {
-          exportImages(provenance);
+          exportImages(db, provenance);
         });
       });
 

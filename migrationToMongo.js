@@ -46,12 +46,10 @@ const MAIN_FILES = [
 const constructFormats = item => {
   let searchField = "";
   forEach(formatsMap, (format, key) => {
-    console.log("searchField", searchField);
     if (item[key] === "1")
       if (searchField) searchField = searchField.concat(`, ${format}`);
       else searchField = format;
   });
-  console.log("searchField", searchField);
   return searchField;
 };
 
