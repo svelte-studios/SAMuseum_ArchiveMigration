@@ -56,34 +56,29 @@ function exportImage(db, entry) {
   entry.category = formatStartCase(entry.category);
   // entry.category = formatStartCase(entry.category);
 
-  entry.fileName = entry.fileName.replace(/(\.tiff)/, " small.JPG");
-  entry.fileName = entry.fileName.replace(/(\.tif)/, " small.JPG");
-  entry.fileName = entry.fileName.replace(/(\.TIF)/, " small.JPG");
-  entry.fileName = entry.fileName.replace(/(\.jpg)/, " small.JPG");
+  entry.fileName = entry.fileName.replace(/(\.tiff)/, ".JPG");
+  entry.fileName = entry.fileName.replace(/(\.tif)/, ".JPG");
+  entry.fileName = entry.fileName.replace(/(\.TIF)/, ".JPG");
+  entry.fileName = entry.fileName.replace(/(\.jpg)/, ".JPG");
 
   const pathToFile =
     entry.award && entry.award.match(/PORTFOLIO/)
-      ? `${MIGRATION_DIR}Watermarked images Small/Portfolio watermarked small/${entry.fileName}`
+      ? `${MIGRATION_DIR}Watermarked images Full size/Portfolio watermarked/${entry.fileName}`
       : entry.award && entry.award.match(/OVERALL WINNER/)
-      ? `${MIGRATION_DIR}Watermarked images Small/Overall Winner watermarked small/${entry.fileName}`
-      : `${MIGRATION_DIR}Watermarked images Small/${entry.category} watermarked small/${entry.fileName}`;
+      ? `${MIGRATION_DIR}Watermarked images Full size/Overall Winner watermarked/${entry.fileName}`
+      : `${MIGRATION_DIR}Watermarked images Full size/${entry.category} watermarked/${entry.fileName}`;
 
-  if (entry.title === "THROUGH THE FERN") {
-    console.log("exportImage -> pathToFile", pathToFile);
-  }
-  const smallImagePath = `NPOTY2020/${entry.category}/${entry.fileName}`;
+  const imagePath = `NPOTY2020/${entry.category}/${entry.fileName}`;
 
-  readFile(pathToFile, (err, smallImage) => {
-    if (entry.title === "THROUGH THE FERN") {
-      console.log("exportImage -> smallImage", smallImage);
-    }
-    uploadImage(smallImage, `images/${smallImagePath}`).then(() => {
+  readFile(pathToFile, (err, image) => {
+    console.log("exportImage -> image", image);
+    uploadImage(image, `images/${imagePath}`).then(() => {
       return db.collection("competitionEntries").updateOne(
         { _id: `${entry.category}_${entry.title}` },
         {
           $set: {
             ...entry,
-            path: smallImagePath,
+            path: imagePath,
             competitionId: "NPOTY",
             iterationId: "NPOTY2020"
           }
@@ -122,7 +117,6 @@ client.connect(function(err) {
   });
 
   const awardsData = excelToJson(awardsConfig);
-  console.log("awardsData", awardsData);
   forEach(awardsData.Portfolio, entry => {
     promiseChain = promiseChain.then(() => {
       return db
@@ -209,7 +203,7 @@ const awardsConfig = {
         E: "photographer",
         F: "description",
         G: "location",
-        H: "cameraSpecs",
+        H: "capturedWith",
         I: "judgesComments",
         J: "fileName"
       }
@@ -233,7 +227,7 @@ const csvConfig = {
         E: "photographer",
         F: "description",
         G: "location",
-        H: "cameraSpecs",
+        H: "capturedWith",
         I: "judgesComments",
         J: "fileName"
       }
@@ -248,7 +242,7 @@ const csvConfig = {
         E: "photographer",
         F: "description",
         G: "location",
-        H: "cameraSpecs",
+        H: "capturedWith",
         I: "judgesComments",
         J: "fileName"
       }
@@ -263,7 +257,7 @@ const csvConfig = {
         E: "photographer",
         F: "description",
         G: "location",
-        H: "cameraSpecs",
+        H: "capturedWith",
         I: "judgesComments",
         J: "fileName"
       }
@@ -278,7 +272,7 @@ const csvConfig = {
         E: "photographer",
         F: "description",
         G: "location",
-        H: "cameraSpecs",
+        H: "capturedWith",
         I: "judgesComments",
         J: "fileName"
       }
@@ -292,7 +286,7 @@ const csvConfig = {
         D: "photographer",
         E: "description",
         F: "location",
-        G: "cameraSpecs",
+        G: "capturedWith",
         H: "judgesComments",
         I: "fileName"
       }
@@ -307,7 +301,7 @@ const csvConfig = {
         E: "photographer",
         F: "description",
         G: "location",
-        H: "cameraSpecs",
+        H: "capturedWith",
         I: "judgesComments",
         J: "fileName"
       }
@@ -323,7 +317,7 @@ const csvConfig = {
         F: "age",
         G: "description",
         H: "location",
-        I: "cameraSpecs",
+        I: "capturedWith",
         J: "judgesComments",
         K: "fileName",
         L: "photographerPortraitFile"
@@ -339,7 +333,7 @@ const csvConfig = {
         E: "photographer",
         F: "description",
         G: "location",
-        H: "cameraSpecs",
+        H: "capturedWith",
         I: "judgesComments",
         J: "fileName"
       }
@@ -355,7 +349,7 @@ const csvConfig = {
         F: "photographer",
         G: "description",
         H: "location",
-        I: "cameraSpecs",
+        I: "capturedWith",
         J: "judgesComments",
         K: "fileName"
       }
