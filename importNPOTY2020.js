@@ -56,19 +56,31 @@ function exportImage(db, entry) {
   entry.category = formatStartCase(entry.category);
   // entry.category = formatStartCase(entry.category);
 
-  entry.fileName = entry.fileName.replace(/(\.tiff)/, ".JPG");
-  entry.fileName = entry.fileName.replace(/(\.tif)/, ".JPG");
-  entry.fileName = entry.fileName.replace(/(\.TIF)/, ".JPG");
-  entry.fileName = entry.fileName.replace(/(\.jpg)/, ".JPG");
+  entry.fileName = entry.fileName.replace(/(\.tiff)/, " small.JPG");
+  entry.fileName = entry.fileName.replace(/(\.tif)/, " small.JPG");
+  entry.fileName = entry.fileName.replace(/(\.TIF)/, " small.JPG");
+  entry.fileName = entry.fileName.replace(/(\.jpg)/, " small.JPG");
 
   const pathToFile =
     entry.award && entry.award.match(/PORTFOLIO/)
-      ? `${MIGRATION_DIR}Watermarked images Full size/Portfolio watermarked/${entry.fileName}`
+      ? `${MIGRATION_DIR}Watermarked images Small/Portfolio watermarked small/${entry.fileName}`
       : entry.award && entry.award.match(/OVERALL WINNER/)
-      ? `${MIGRATION_DIR}Watermarked images Full size/Overall Winner watermarked/${entry.fileName}`
-      : `${MIGRATION_DIR}Watermarked images Full size/${entry.category} watermarked/${entry.fileName}`;
+      ? `${MIGRATION_DIR}Watermarked images Small/Overall Winner watermarked small/${entry.fileName}`
+      : `${MIGRATION_DIR}Watermarked images Small/${entry.category} watermarked small/${entry.fileName}`;
 
-  const imagePath = `NPOTY2020/${entry.category}/${entry.fileName}`;
+  // entry.fileName = entry.fileName.replace(/(\.tiff)/, ".JPG");
+  // entry.fileName = entry.fileName.replace(/(\.tif)/, ".JPG");
+  // entry.fileName = entry.fileName.replace(/(\.TIF)/, ".JPG");
+  // entry.fileName = entry.fileName.replace(/(\.jpg)/, ".JPG");
+
+  // const pathToFile =
+  //   entry.award && entry.award.match(/PORTFOLIO/)
+  //     ? `${MIGRATION_DIR}Watermarked images Full size/Portfolio watermarked/${entry.fileName}`
+  //     : entry.award && entry.award.match(/OVERALL WINNER/)
+  //     ? `${MIGRATION_DIR}Watermarked images Full size/Overall Winner watermarked/${entry.fileName}`
+  //     : `${MIGRATION_DIR}Watermarked images Full size/${entry.category} watermarked/${entry.fileName}`;
+
+  const imagePath = `competition/NPOTY/2020/${entry.category}/small/${entry.fileName}`;
 
   readFile(pathToFile, (err, image) => {
     console.log("exportImage -> image", image);
@@ -80,7 +92,7 @@ function exportImage(db, entry) {
             ...entry,
             path: imagePath,
             competitionId: "NPOTY",
-            iterationId: "NPOTY2020"
+            iterationId: "2020"
           }
         },
         { upsert: true }
@@ -92,7 +104,7 @@ function exportImage(db, entry) {
 // );
 
 // const url =
-//   "mongodb+srv://jake:nSTpXARKE48oeRCU@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
+//   "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
 const url = "mongodb://localhost:27017?retryWrites=true&rs=true";
 const dbName = "sam_website";
 
