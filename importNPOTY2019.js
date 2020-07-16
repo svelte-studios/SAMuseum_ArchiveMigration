@@ -1,7 +1,7 @@
-const { forEach, find, startCase, toLower } = require("lodash");
+const { forEach, snakeCase, startCase, toLower } = require("lodash");
 const MongoClient = require("mongodb").MongoClient;
 const assert = require("assert");
-const MIGRATION_DIR = process.cwd() + "/NPOTY 2020/"; //process.cwd() + "/mongo/archiveMigration/"
+const MIGRATION_DIR = process.cwd() + "/NPOTY 2019/"; //process.cwd() + "/mongo/archiveMigration/"
 const { readFile, readdirSync, existsSync } = require("fs");
 const excelToJson = require("convert-excel-to-json");
 const awsSDK = require("aws-sdk");
@@ -24,8 +24,7 @@ awsSDK.config.update({
 
 const s3 = new awsSDK.S3();
 
-const sourceFile =
-  MIGRATION_DIR + "Winners NPOTY 2020 full captions revised.xlsx";
+const sourceFile = MIGRATION_DIR + "2019 NPOTY data.xlsx";
 
 const uploadImage = function(fileBuffer, id) {
   const uploadImagePromise = new Promise((resolve, reject) => {
@@ -51,40 +50,35 @@ const uploadImage = function(fileBuffer, id) {
 
 function exportImage(db, entry) {
   if (entry.award && entry.award.match(/OVERALL WINNER/))
-    entry.category = "Landscape";
+    entry.category = "Animal Behaviour";
   entry.category = entry.category.replace(/(\(.*\))/gi, "");
   entry.category = formatStartCase(entry.category);
 
-  entry.fileName = entry.fileName.replace(/(\.tiff)/, " small.JPG");
-  entry.fileName = entry.fileName.replace(/(\.tif)/, " small.JPG");
-  entry.fileName = entry.fileName.replace(/(\.TIF)/, " small.JPG");
-  entry.fileName = entry.fileName.replace(/(\.jpg)/, " small.JPG");
-
   const pathToFile =
     entry.award && entry.award.match(/PORTFOLIO/)
-      ? `${MIGRATION_DIR}Watermarked images Small/Portfolio watermarked small/${entry.fileName}`
+      ? `${MIGRATION_DIR}Small watermarked/Portfolio watermarked/${entry.fileName}`
       : entry.award && entry.award.match(/OVERALL WINNER/)
-      ? `${MIGRATION_DIR}Watermarked images Small/Overall Winner watermarked small/${entry.fileName}`
-      : `${MIGRATION_DIR}Watermarked images Small/${entry.category} watermarked small/${entry.fileName}`;
+      ? `${MIGRATION_DIR}Small watermarked/OW watermarked/${entry.fileName}`
+      : `${MIGRATION_DIR}Small watermarked/${entry.category} watermarked/${entry.fileName}`;
 
-  const imagePath = `competition/NPOTY/2020/${entry.category}/small/${entry.fileName}`;
+  const imagePath = `competition/NPOTY/2019/${entry.category}/small/${entry.fileName}`;
 
   readFile(pathToFile, (err, image) => {
-    console.log("exportImage -> image", image);
-    uploadImage(image, `images/${imagePath}`).then(() => {
-      return db.collection("competitionEntries").updateOne(
-        { _id: `${entry.category}_${entry.title}` },
-        {
-          $set: {
-            ...entry,
-            path: imagePath,
-            competitionId: "NPOTY",
-            iterationId: "2020"
-          }
-        },
-        { upsert: true }
-      );
-    });
+    // console.log("exportImage -> image", image);
+    // uploadImage(image, `images/${imagePath}`).then(() => {
+    return db.collection("competitionEntries").updateOne(
+      { _id: `${entry.category}_${entry.title}` },
+      {
+        $set: {
+          ...entry,
+          path: imagePath,
+          competitionId: "NPOTY",
+          iterationId: "2019"
+        }
+      },
+      { upsert: true }
+    );
+    // });
   });
 }
 
@@ -106,6 +100,7 @@ client.connect(function(err) {
   let promiseChain = Promise.resolve();
 
   forEach(jsonObj, (entries, category) => {
+    console.log("entries", entries);
     forEach(entries, entry => {
       promiseChain = promiseChain.then(() => {
         exportImage(db, entry);
@@ -114,6 +109,7 @@ client.connect(function(err) {
   });
 
   const awardsData = excelToJson(awardsConfig);
+  console.log("awardsData.Portfolio", awardsData.Portfolio);
   forEach(awardsData.Portfolio, entry => {
     promiseChain = promiseChain.then(() => {
       return db
@@ -127,7 +123,6 @@ client.connect(function(err) {
 
   promiseChain = promiseChain.then(() => {
     const overallWinner = awardsData.Overall[0];
-    console.log("overallWinner.award", overallWinner.award);
     return db.collection("competitionEntries").updateOne(
       { title: overallWinner.title },
       {
