@@ -50,10 +50,10 @@ const uploadImage = function(fileBuffer, id) {
 };
 
 function exportImage(db, entry) {
-  if (entry.award && entry.award.match(/OVERALL WINNER/))
-    entry.category = "Landscape";
-  entry.category = entry.category.replace(/(\(.*\))/gi, "");
-  entry.category = formatStartCase(entry.category);
+  // if (entry.award && entry.award.match(/OVERALL WINNER/))
+  //   entry.category = "Landscape";
+  // entry.category = entry.category.replace(/(\(.*\))/gi, "");
+  // entry.category = formatStartCase(entry.category);
 
   entry.fileName = entry.fileName.replace(/(\.tiff)/, " small.JPG");
   entry.fileName = entry.fileName.replace(/(\.tif)/, " small.JPG");
@@ -67,24 +67,29 @@ function exportImage(db, entry) {
       ? `${MIGRATION_DIR}Watermarked images Small/Overall Winner watermarked small/${entry.fileName}`
       : `${MIGRATION_DIR}Watermarked images Small/${entry.category} watermarked small/${entry.fileName}`;
 
+  if (
+    entry.award &&
+    (entry.award.match(/PORTFOLIO/gi) || entry.award.match(/OVERALL WINNER/gi))
+  )
+    delete entry.award;
+
   const imagePath = `competition/NPOTY/2020/${entry.category}/small/${entry.fileName}`;
 
   readFile(pathToFile, (err, image) => {
-    console.log("exportImage -> image", image);
-    uploadImage(image, `images/${imagePath}`).then(() => {
-      return db.collection("competitionEntries").updateOne(
-        { _id: `${entry.category}_${entry.title}` },
-        {
-          $set: {
-            ...entry,
-            path: imagePath,
-            competitionId: "NPOTY",
-            iterationId: "2020"
-          }
-        },
-        { upsert: true }
-      );
-    });
+    // uploadImage(image, `images/${imagePath}`).then(() => {
+    return db.collection("competitionEntries").updateOne(
+      { _id: `${entry.category}_${entry.title}` },
+      {
+        $set: {
+          ...entry,
+          path: imagePath,
+          competitionId: "NPOTY",
+          iterationId: "2020"
+        }
+      },
+      { upsert: true }
+    );
+    // });
   });
 }
 
@@ -107,6 +112,7 @@ client.connect(function(err) {
 
   forEach(jsonObj, (entries, category) => {
     forEach(entries, entry => {
+      entry = setCategory(entry);
       promiseChain = promiseChain.then(() => {
         exportImage(db, entry);
       });
@@ -115,29 +121,43 @@ client.connect(function(err) {
 
   const awardsData = excelToJson(awardsConfig);
   forEach(awardsData.Portfolio, entry => {
+    entry = setCategory(entry);
     promiseChain = promiseChain.then(() => {
-      return db
-        .collection("competitionEntries")
-        .updateOne(
-          { title: entry.title },
-          { $set: { award: "Portfolio Prize" } }
-        );
+      return db.collection("competitionEntries").updateOne(
+        // { title: entry.title },
+        { _id: `${entry.category}_${entry.title}` },
+        // { $set: { award: "Portfolio Prize" } }
+        {
+          $set: {
+            award: "PORTFOLIO PRIZE WINNER",
+            judgesComments: awardsData.Portfolio[0].judgesComments
+          }
+        },
+        { upsert: true }
+      );
     });
   });
 
   promiseChain = promiseChain.then(() => {
-    const overallWinner = awardsData.Overall[0];
-    console.log("overallWinner.award", overallWinner.award);
+    let overallWinner = awardsData.Overall[0];
+    overallWinner.award = "OVERALL WINNER";
+    overallWinner = setCategory(overallWinner);
     return db.collection("competitionEntries").updateOne(
-      { title: overallWinner.title },
+      // { title: overallWinner.title },
+      { _id: `${overallWinner.category}_${overallWinner.title}` },
       {
         $set: {
-          award: "Overall Winner",
-          category: overallWinner.award
-            .match(/(\(.*\))/g)[0]
-            .replace(/[()]/g, "")
+          award: "OVERALL WINNER",
+          judgesComments: overallWinner.judgesComments
         }
-      }
+        // $set: {
+        //   award: "Overall Winner",
+        //   category: overallWinner.award
+        //     .match(/(\(.*\))/g)[0]
+        //     .replace(/[()]/g, "")
+        // }
+      },
+      { upsert: true }
     );
   });
 
@@ -145,6 +165,15 @@ client.connect(function(err) {
     // client.close();
   });
 });
+
+function setCategory(entry) {
+  if (entry.award && entry.award.match(/OVERALL WINNER/gi))
+    entry.category = "Landscape";
+  entry.category = entry.category.replace(/(\(.*\))/gi, "");
+  entry.category = formatStartCase(entry.category);
+
+  return entry;
+}
 
 const awardsConfig = {
   sourceFile,
@@ -155,14 +184,22 @@ const awardsConfig = {
     {
       name: "Overall",
       columnToKey: {
-        A: "award",
-        B: "title"
+        A: "category",
+        B: "title",
+        C: "species",
+        D: "status",
+        E: "photographer",
+        F: "description",
+        G: "location",
+        H: "capturedWith",
+        I: "judgesComments",
+        J: "fileName"
       }
     },
     {
       name: "Portfolio",
       columnToKey: {
-        A: "award",
+        A: "category",
         B: "title",
         C: "species",
         E: "photographer",

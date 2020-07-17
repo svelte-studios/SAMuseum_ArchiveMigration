@@ -1,4 +1,4 @@
-const { forEach, snakeCase, startCase, toLower } = require("lodash");
+const { forEach, omit, startCase, toLower } = require("lodash");
 const MongoClient = require("mongodb").MongoClient;
 const assert = require("assert");
 const MIGRATION_DIR = process.cwd() + "/NPOTY 2019/"; //process.cwd() + "/mongo/archiveMigration/"
@@ -49,22 +49,22 @@ const uploadImage = function(fileBuffer, id) {
 };
 
 function exportImage(db, entry) {
-  if (entry.award && entry.award.match(/OVERALL WINNER/))
-    entry.category = "Animal Behaviour";
-  entry.category = entry.category.replace(/(\(.*\))/gi, "");
-  entry.category = formatStartCase(entry.category);
-
   const pathToFile =
-    entry.award && entry.award.match(/PORTFOLIO/)
+    entry.award && entry.award.match(/PORTFOLIO/gi)
       ? `${MIGRATION_DIR}Small watermarked/Portfolio watermarked/${entry.fileName}`
-      : entry.award && entry.award.match(/OVERALL WINNER/)
+      : entry.award && entry.award.match(/OVERALL WINNER/gi)
       ? `${MIGRATION_DIR}Small watermarked/OW watermarked/${entry.fileName}`
       : `${MIGRATION_DIR}Small watermarked/${entry.category} watermarked/${entry.fileName}`;
 
+  if (
+    entry.award &&
+    (entry.award.match(/PORTFOLIO/gi) || entry.award.match(/OVERALL WINNER/gi))
+  )
+    delete entry.award;
+
   const imagePath = `competition/NPOTY/2019/${entry.category}/small/${entry.fileName}`;
 
-  readFile(pathToFile, (err, image) => {
-    // console.log("exportImage -> image", image);
+  return readFile(pathToFile, (err, image) => {
     // uploadImage(image, `images/${imagePath}`).then(() => {
     return db.collection("competitionEntries").updateOne(
       { _id: `${entry.category}_${entry.title}` },
@@ -100,39 +100,45 @@ client.connect(function(err) {
   let promiseChain = Promise.resolve();
 
   forEach(jsonObj, (entries, category) => {
-    console.log("entries", entries);
     forEach(entries, entry => {
+      entry = setCategory(entry);
       promiseChain = promiseChain.then(() => {
-        exportImage(db, entry);
+        return exportImage(db, entry);
       });
     });
   });
 
   const awardsData = excelToJson(awardsConfig);
-  console.log("awardsData.Portfolio", awardsData.Portfolio);
   forEach(awardsData.Portfolio, entry => {
+    entry = setCategory(entry);
     promiseChain = promiseChain.then(() => {
-      return db
-        .collection("competitionEntries")
-        .updateOne(
-          { title: entry.title },
-          { $set: { award: "Portfolio Prize" } }
-        );
+      return db.collection("competitionEntries").updateOne(
+        { _id: `${entry.category}_${entry.title}` },
+        {
+          $set: {
+            award: "PORTFOLIO PRIZE WINNER",
+            judgesComments: awardsData.Portfolio[0].judgesComments
+          }
+        },
+        { upsert: true }
+      );
     });
   });
 
   promiseChain = promiseChain.then(() => {
-    const overallWinner = awardsData.Overall[0];
+    let overallWinner = awardsData.Overall[0];
+    overallWinner.award = "OVERALL WINNER";
+    overallWinner = setCategory(overallWinner);
+    exportImage(db, overallWinner);
     return db.collection("competitionEntries").updateOne(
-      { title: overallWinner.title },
+      { _id: `${overallWinner.category}_${overallWinner.title}` },
       {
         $set: {
-          award: "Overall Winner",
-          category: overallWinner.award
-            .match(/(\(.*\))/g)[0]
-            .replace(/[()]/g, "")
+          award: "OVERALL WINNER",
+          judgesComments: overallWinner.judgesComments
         }
-      }
+      },
+      { upsert: true }
     );
   });
 
@@ -140,6 +146,15 @@ client.connect(function(err) {
     // client.close();
   });
 });
+
+function setCategory(entry) {
+  if (entry.award && entry.award.match(/OVERALL WINNER/gi))
+    entry.category = "Animal Behaviour";
+  entry.category = entry.category.replace(/(\(.*\))/gi, "");
+  entry.category = formatStartCase(entry.category);
+
+  return entry;
+}
 
 const awardsConfig = {
   sourceFile,
@@ -150,14 +165,24 @@ const awardsConfig = {
     {
       name: "Overall",
       columnToKey: {
-        A: "award",
-        B: "title"
+        // A: "award",
+        // B: "title"
+        A: "category",
+        B: "title",
+        C: "species",
+        D: "status",
+        E: "photographer",
+        F: "description",
+        G: "location",
+        H: "capturedWith",
+        I: "judgesComments",
+        J: "fileName"
       }
     },
     {
       name: "Portfolio",
       columnToKey: {
-        A: "award",
+        A: "category",
         B: "title",
         C: "species",
         E: "photographer",
