@@ -130,7 +130,8 @@ client.connect(function(err) {
         // { $set: { award: "Portfolio Prize" } }
         {
           $set: {
-            award: "PORTFOLIO PRIZE WINNER",
+            award: "",
+            portfolioPrize: true,
             judgesComments: awardsData.Portfolio[0].judgesComments
           }
         },

@@ -56,6 +56,9 @@ function exportImage(db, entry) {
       ? `${MIGRATION_DIR}Small watermarked/OW watermarked/${entry.fileName}`
       : `${MIGRATION_DIR}Small watermarked/${entry.category} watermarked/${entry.fileName}`;
 
+  entry.portfolioPrize =
+    entry.award && entry.award.match(/PORTFOLIO/gi) ? true : false;
+
   if (
     entry.award &&
     (entry.award.match(/PORTFOLIO/gi) || entry.award.match(/OVERALL WINNER/gi))
@@ -117,7 +120,7 @@ client.connect(function(err) {
         { _id: `${entry.category}_${entry.title}` },
         {
           $set: {
-            award: "PORTFOLIO PRIZE WINNER",
+            award: "",
             judgesComments: awardsData.Portfolio[0].judgesComments
           }
         },

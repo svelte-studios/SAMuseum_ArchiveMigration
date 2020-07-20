@@ -1,5 +1,5 @@
 const MongoClient = require("mongodb").MongoClient;
-const { groupBy, join, map, filter } = require("lodash");
+const { groupBy, find, forEach, filter } = require("lodash");
 const assert = require("assert");
 const MIGRATION_DIR = process.cwd() + "/NPOTY Backups/";
 const { readFile } = require("fs");
@@ -19,6 +19,21 @@ awsSDK.config.update({
 });
 
 const s3 = new awsSDK.S3();
+
+const categories = {
+  2200: "Animal Behaviour",
+  97: "Animal Portrait",
+  98: "Botanical",
+  99: "Landscape",
+  2202: "Monochrome",
+  103: "Our Impact",
+  2199: "Animal Habitat",
+  104: "Junior",
+  102: "Interpretive",
+  105: "Underwater",
+  100: "Threatened Species"
+  // 2198: "Portfolio Prize"
+};
 
 const uploadImage = function(fileBuffer, id) {
   const uploadImagePromise = new Promise((resolve, reject) => {
@@ -42,37 +57,63 @@ const uploadImage = function(fileBuffer, id) {
   });
 };
 
-function exportImage(db, entry) {
-  const pathToFile =
-    entry.award && entry.award.match(/PORTFOLIO/gi)
-      ? `${MIGRATION_DIR}Small watermarked/Portfolio watermarked/${entry.fileName}`
-      : entry.award && entry.award.match(/OVERALL WINNER/gi)
-      ? `${MIGRATION_DIR}Small watermarked/OW watermarked/${entry.fileName}`
-      : `${MIGRATION_DIR}Small watermarked/${entry.category} watermarked/${entry.fileName}`;
+function exportImage(db, item, detail) {
+  const entry = {
+    _id: item.ID,
+    title: item.Title,
+    competitionId: "NPOTY",
+    iterationId: detail.Year[0].StringValue,
+    fileName: item.Image.split("/").pop(),
+    photographer: detail.Photographer[0].StringValue,
+    backupText: detail.Text[0].StringValue
+  };
 
-  if (
-    entry.award &&
-    (entry.award.match(/PORTFOLIO/gi) || entry.award.match(/OVERALL WINNER/gi))
-  )
-    delete entry.award;
+  if (entry.iterationId === "2018" || entry.iterationId === "2017") {
+    console.log("exportImage -> entry.title", entry.title);
+    console.log(
+      "exportImage -> detail.Category[0].StringValue",
+      detail.Category[0].StringValue
+    );
+    const splitCategories = detail.Category[0].StringValue.split(",");
+    entry.category =
+      categories[splitCategories[0]] || categories[splitCategories[1]];
+    // entry.category = find(categories, c => {
+    //   const regex = new RegExp(c, "gi");
+    //   return entry.backupText.match(regex);
+    // });
+  } else if (detail.Text[0].StringValue.match(/OVERALL WINNER/gi))
+    entry.category = "Overall Winner";
+  else entry.category = item.Image.split("/")[4].replace("-", " ");
 
-  const imagePath = `competition/NPOTY/2019/${entry.category}/small/${entry.fileName}`;
+  entry.award = entry.backupText.match(/OVERALL WINNER/gi)
+    ? "Overall Winner"
+    : entry.backupText.match(/winner/gi)
+    ? `${entry.category} Winner`
+    : entry.backupText.match(/Runner/gi)
+    ? `${entry.category} Runner-up`
+    : "";
+
+  entry.portfolioPrize = entry.backupText.match(/PORTFOLIO PRIZE/gi)
+    ? true
+    : false;
+
+  entry.path = `competition/NPOTY/${entry.iterationId}/${entry.category}/small/${entry.fileName}`;
+
+  const pathToFile = `${MIGRATION_DIR}${item.Image}`.replace(
+    ".jpg",
+    "_gallery.jpg"
+  );
 
   return readFile(pathToFile, (err, image) => {
-    // uploadImage(image, `images/${imagePath}`).then(() => {
-    return db.collection("competitionEntries").updateOne(
-      { _id: `${entry.category}_${entry.title}` },
-      {
-        $set: {
-          ...entry,
-          path: imagePath,
-          competitionId: "NPOTY",
-          iterationId: "2019"
-        }
-      },
-      { upsert: true }
-    );
-    // });
+    uploadImage(image, `images/${entry.path}`).then(() => {
+      return db.collection("competitionEntries").updateOne(
+        { _id: entry._id },
+        {
+          $set: entry
+        },
+        { upsert: true }
+      );
+    });
   });
 }
 
@@ -92,56 +133,24 @@ client.connect(function(err) {
 
   let promiseChain = Promise.resolve();
   return Promise.all([
-    csv().fromFile(MIGRATION_DIR + "backupCSVs/Photograph.csv"),
-    csv().fromFile(MIGRATION_DIR + "backupCSVs/SubmittedEntry.csv"),
-    csv().fromFile(MIGRATION_DIR + "backupCSVs/UserProfile.csv"),
-    csv().fromFile(MIGRATION_DIR + "backupCSVs/Category.csv")
-  ]).then(([photographs, submittedEntries, profiles, categories]) => {
-    submittedEntries = groupBy(submittedEntries, "Id");
-    profiles = groupBy(profiles, "Id");
-    categories = groupBy(categories, "Id");
+    csv().fromFile(MIGRATION_DIR + "backupCSVs/n2Item.csv"),
+    csv().fromFile(MIGRATION_DIR + "backupCSVs/n2Detail.csv")
+  ]).then(([items, details]) => {
+    details = groupBy(details, "ItemID");
 
-    //TODO only use photographs that were finalists
-    photographs = filter(photographs.slice(10, 15), p => p.SubmittedEntry_Id);
+    items = filter(items, i => i.Type === "GalleryPhotographPage");
 
-    const entries = map(photographs, entry => {
-      const category = categories[entry.CategoryId][0];
-      console.log("category", category);
-      const submittedEntry = submittedEntries[entry.SubmittedEntry_Id][0];
-      console.log("submittedEntry", submittedEntry);
-      const profile = profiles[submittedEntry.User_Id][0];
-      console.log("profile", profile);
-
-      return {
-        _id: submittedEntry.Id,
-        category: category.Name,
-        title: entry.Title,
-        location: entry.WhereTaken,
-        description: entry.OtherDetails,
-        capturedWith: formatCapturedWith(entry),
-        photographer: formatPhotographer(profile)
-      };
+    forEach(items, item => {
+      const detail = groupBy(details[item.ID], "Name");
+      if (detail.Year[0].StringValue === "2009") {
+        promiseChain = promiseChain.then(() => {
+          exportImage(db, item, detail);
+        });
+      }
     });
-    console.log("entries", entries);
 
     return promiseChain.then(() => {
       // client.close();
     });
   });
 });
-
-function formatCapturedWith(entry) {
-  const parts = [];
-  if (entry.Camera && entry.Camera !== "Not sure") parts.push(entry.Camera);
-  if (entry.Lens && entry.Lens !== "Not sure") parts.push(entry.Lens);
-  if (entry.ShutterSpeed && entry.ShutterSpeed !== "Not sure")
-    parts.push(entry.ShutterSpeed);
-  if (entry.FStop && entry.FStop !== "Not sure") parts.push(entry.FStop);
-  if (entry.ISO && entry.ISO !== "Not sure") parts.push(`ISO ${entry.ISO}`);
-
-  return join(parts, ", ");
-}
-
-function formatPhotographer(profile) {
-  return `${profile.FirstName} ${profile.Surname}, ${profile.StateTerritory}`;
-}
