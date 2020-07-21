@@ -69,10 +69,11 @@ function exportImage(db, item, detail) {
   };
 
   if (entry.iterationId === "2018" || entry.iterationId === "2017") {
-    console.log("exportImage -> entry.title", entry.title);
     const splitCategories = detail.Category[0].StringValue.split(",");
     entry.category =
-      categories[splitCategories[0]] || categories[splitCategories[1]];
+      categories[splitCategories[0]] ||
+      categories[splitCategories[1]] ||
+      categories[splitCategories[2]];
   } else if (entry.backupText.match(/OVERALL WINNER|overal winner/gi))
     entry.category = "Overall Winner";
   else entry.category = startCase(item.Image.split("/")[4]);
