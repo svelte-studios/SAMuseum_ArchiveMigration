@@ -1,4 +1,4 @@
-const { forEach, find, startCase, toLower } = require("lodash");
+const { forEach, map, shuffle, startCase, toLower } = require("lodash");
 const MongoClient = require("mongodb").MongoClient;
 const assert = require("assert");
 const MIGRATION_DIR = process.cwd() + "/NPOTY 2020/"; //process.cwd() + "/mongo/archiveMigration/"
@@ -125,9 +125,7 @@ client.connect(function(err) {
     entry = setCategory(entry);
     promiseChain = promiseChain.then(() => {
       return db.collection("competitionEntries").updateOne(
-        // { title: entry.title },
         { _id: `${entry.category}_${entry.title}` },
-        // { $set: { award: "Portfolio Prize" } }
         {
           $set: {
             award: "",
@@ -145,25 +143,42 @@ client.connect(function(err) {
     overallWinner.award = "OVERALL WINNER";
     overallWinner = setCategory(overallWinner);
     return db.collection("competitionEntries").updateOne(
-      // { title: overallWinner.title },
       { _id: `${overallWinner.category}_${overallWinner.title}` },
       {
         $set: {
           award: "OVERALL WINNER",
           judgesComments: overallWinner.judgesComments
         }
-        // $set: {
-        //   award: "Overall Winner",
-        //   category: overallWinner.award
-        //     .match(/(\(.*\))/g)[0]
-        //     .replace(/[()]/g, "")
-        // }
       },
       { upsert: true }
     );
   });
 
   return promiseChain.then(() => {
+    return db
+      .collection("competitionEntries")
+      .find({ iterationId: "2020" })
+      .toArray()
+      .then(entries => {
+        entries = shuffle(entries);
+        const ops = map(entries, e => {
+          return {
+            updateOne: {
+              filter: { _id: e._id },
+              update: { $set: e },
+              upsert: true
+            }
+          };
+        });
+        return db
+          .collection("competitionEntries")
+          .deleteMany({ iterationId: "2020" })
+          .then(() => {
+            return db
+              .collection("competitionEntries")
+              .bulkWrite(ops, { ordered: true });
+          });
+      });
     // client.close();
   });
 });

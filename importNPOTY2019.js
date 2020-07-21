@@ -1,8 +1,8 @@
-const { forEach, omit, startCase, toLower } = require("lodash");
+const { forEach, startCase, toLower, shuffle, map } = require("lodash");
 const MongoClient = require("mongodb").MongoClient;
 const assert = require("assert");
 const MIGRATION_DIR = process.cwd() + "/NPOTY 2019/"; //process.cwd() + "/mongo/archiveMigration/"
-const { readFile, readdirSync, existsSync } = require("fs");
+const { readFile } = require("fs");
 const excelToJson = require("convert-excel-to-json");
 const awsSDK = require("aws-sdk");
 require("dotenv").config();
@@ -147,6 +147,30 @@ client.connect(function(err) {
   });
 
   return promiseChain.then(() => {
+    return db
+      .collection("competitionEntries")
+      .find({ iterationId: "2019" })
+      .toArray()
+      .then(entries => {
+        entries = shuffle(entries);
+        const ops = map(entries, e => {
+          return {
+            updateOne: {
+              filter: { _id: e._id },
+              update: { $set: e },
+              upsert: true
+            }
+          };
+        });
+        return db
+          .collection("competitionEntries")
+          .deleteMany({ iterationId: "2019" })
+          .then(() => {
+            return db
+              .collection("competitionEntries")
+              .bulkWrite(ops, { ordered: true });
+          });
+      });
     // client.close();
   });
 });

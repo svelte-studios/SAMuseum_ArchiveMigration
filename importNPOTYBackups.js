@@ -1,5 +1,5 @@
 const MongoClient = require("mongodb").MongoClient;
-const { groupBy, find, forEach, filter } = require("lodash");
+const { groupBy, startCase, forEach, filter } = require("lodash");
 const assert = require("assert");
 const MIGRATION_DIR = process.cwd() + "/NPOTY Backups/";
 const { readFile } = require("fs");
@@ -70,22 +70,14 @@ function exportImage(db, item, detail) {
 
   if (entry.iterationId === "2018" || entry.iterationId === "2017") {
     console.log("exportImage -> entry.title", entry.title);
-    console.log(
-      "exportImage -> detail.Category[0].StringValue",
-      detail.Category[0].StringValue
-    );
     const splitCategories = detail.Category[0].StringValue.split(",");
     entry.category =
       categories[splitCategories[0]] || categories[splitCategories[1]];
-    // entry.category = find(categories, c => {
-    //   const regex = new RegExp(c, "gi");
-    //   return entry.backupText.match(regex);
-    // });
-  } else if (detail.Text[0].StringValue.match(/OVERALL WINNER/gi))
+  } else if (entry.backupText.match(/OVERALL WINNER|overal winner/gi))
     entry.category = "Overall Winner";
-  else entry.category = item.Image.split("/")[4].replace("-", " ");
+  else entry.category = startCase(item.Image.split("/")[4]);
 
-  entry.award = entry.backupText.match(/OVERALL WINNER/gi)
+  entry.award = entry.backupText.match(/OVERALL WINNER|overal winner/gi)
     ? "Overall Winner"
     : entry.backupText.match(/winner/gi)
     ? `${entry.category} Winner`
@@ -93,7 +85,9 @@ function exportImage(db, item, detail) {
     ? `${entry.category} Runner-up`
     : "";
 
-  entry.portfolioPrize = entry.backupText.match(/PORTFOLIO PRIZE/gi)
+  entry.portfolioPrize = entry.backupText.match(
+    /PORTFOLIO PRIZE|PORTFOLIO&nbsp;PRIZE/gi
+  )
     ? true
     : false;
 
@@ -101,7 +95,8 @@ function exportImage(db, item, detail) {
 
   const pathToFile = `${MIGRATION_DIR}${item.Image}`.replace(
     ".jpg",
-    "_gallery.jpg"
+    // "_gallery.jpg"
+    "_original.jpg"
   );
 
   return readFile(pathToFile, (err, image) => {
@@ -128,6 +123,10 @@ const client = new MongoClient(url);
 client.connect(function(err) {
   assert.equal(null, err);
   console.log("Connected successfully to server");
+  const importYear = process.argv.slice(2)[0];
+
+  if (!importYear)
+    throw new Error("No Year Provided, provide via command line");
 
   const db = client.db(dbName);
 
@@ -142,7 +141,7 @@ client.connect(function(err) {
 
     forEach(items, item => {
       const detail = groupBy(details[item.ID], "Name");
-      if (detail.Year[0].StringValue === "2009") {
+      if (detail.Year[0].StringValue === importYear) {
         promiseChain = promiseChain.then(() => {
           exportImage(db, item, detail);
         });
