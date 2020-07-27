@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@elastic/elasticsearch": "^7.8.0",
     "assert": "^2.0.0",
     "aws-sdk": "^2.673.0",
     "convert-excel-to-json": "^1.7.0",
@@ -16,6 +17,7 @@
     "dotenv": "^8.2.0",
     "excel4node": "^1.7.2",
     "lodash": "^4.17.15",
+    "moment": "^2.27.0",
     "mongodb": "^3.5.7",
     "slugify": "^1.4.0",
     "tiptap": "^1.27.1",

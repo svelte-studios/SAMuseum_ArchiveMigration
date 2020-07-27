@@ -5,6 +5,7 @@ const MIGRATION_DIR = process.cwd() + "/";
 const { readdirSync } = require("fs");
 const csv = require("csvtojson");
 const slugify = require("slugify");
+const { Client } = require("@elastic/elasticsearch");
 
 const getCsvFiles = source =>
   readdirSync(source, { withFileTypes: true })
@@ -19,10 +20,10 @@ const getCsvFiles = source =>
 const url = "mongodb://localhost:27017";
 // Database Name
 const dbName = "sam_website";
-// Create a new MongoClient
 const client = new MongoClient(url);
 
-// Use connect method to connect to the Server
+const elasticClient = new Client({ node: "http://localhost:9200" });
+
 client.connect(function(err) {
   assert.equal(null, err);
   console.log("Connected successfully to server");

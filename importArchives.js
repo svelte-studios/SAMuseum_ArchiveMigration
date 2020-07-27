@@ -1,4 +1,4 @@
-const { forEach, map, pickBy, identity } = require("lodash");
+const { forEach, map, pickBy, identity, filter } = require("lodash");
 const MongoClient = require("mongodb").MongoClient;
 const assert = require("assert");
 const MIGRATION_DIR = process.cwd() + "/HDMS/"; //process.cwd() + "/mongo/archiveMigration/"
@@ -132,7 +132,8 @@ client.connect(function(err) {
           ? doc.PROV_NAME.substring(0, 1)
           : "";
 
-        let inventory = doc.INVENTORY;
+        let inventory = filter(doc.INVENTORY, i => i.ITEM_ID && i.CONTROL);
+        console.log("inventory", inventory);
         let series = doc.SERIES;
 
         series = map(series, s => {
@@ -180,9 +181,6 @@ client.connect(function(err) {
                 lower: true
               }
             )}`,
-            // slugifiedId: slugify(i.CONTROL.replace(/\//, "-"), {
-            //   lower: true
-            // }),
             slugifiedSeriesId: slugify(i.SERIES_ID.replace(/\//, "-"), {
               lower: true
             }),
@@ -226,44 +224,45 @@ client.connect(function(err) {
           };
         });
 
-        promiseChain = promiseChain.then(() =>
-          db
-            .collection("Archive_provenance")
-            .insertOne(
-              {
-                ...pickBy(doc, identity)
-              },
-              {
-                w: "majority",
-                wtimeout: 10000,
-                serializeFunctions: true
-              }
-              // function(err, r) {
-              //   assert.equal(null, err);
-              //   assert.equal(1, r.insertedCount);
-              // }
-            )
-            .then(() => {
-              if (!inventoryOps.length) return Promise.resolve();
-              return db
-                .collection("Archive_inventory")
-                .bulkWrite(inventoryOps, { ordered: false })
-                .then(() => {
-                  if (!seriesOps.length) return Promise.resolve();
-                  return db
-                    .collection("Archive_series")
-                    .bulkWrite(seriesOps, { ordered: false })
-                    .catch(err => {
-                      console.log("err", err);
-                      throw new Error(err);
-                    });
-                })
-                .catch(err => {
-                  console.log("err", err);
-                  throw new Error(err);
-                });
-            })
-        );
+        if (inventoryOps && inventoryOps.length)
+          promiseChain = promiseChain.then(() =>
+            db
+              .collection("Archive_provenance")
+              .insertOne(
+                {
+                  ...pickBy(doc, identity)
+                },
+                {
+                  w: "majority",
+                  wtimeout: 10000,
+                  serializeFunctions: true
+                }
+                // function(err, r) {
+                //   assert.equal(null, err);
+                //   assert.equal(1, r.insertedCount);
+                // }
+              )
+              .then(() => {
+                if (!inventoryOps.length) return Promise.resolve();
+                return db
+                  .collection("Archive_inventory")
+                  .bulkWrite(inventoryOps, { ordered: false })
+                  .then(() => {
+                    if (!seriesOps.length) return Promise.resolve();
+                    return db
+                      .collection("Archive_series")
+                      .bulkWrite(seriesOps, { ordered: false })
+                      .catch(err => {
+                        console.log("err", err);
+                        throw new Error(err);
+                      });
+                  })
+                  .catch(err => {
+                    console.log("err", err);
+                    throw new Error(err);
+                  });
+              })
+          );
       });
 
       return promiseChain.then(() => {
