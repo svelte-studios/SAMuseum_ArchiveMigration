@@ -42,37 +42,38 @@ mongoClient.connect(function(err) {
     db
       .collection("Archive_inventory")
       .find({ _id: { $exists: true, $ne: "" } })
-      .limit(100)
+      // .limit(100)
       .toArray()
   ]).then(([provenances, series, items]) => {
     const dataset = [];
     forEach(items, item => {
       const relatedSeries = find(series, s => s.SERIES_ID === item.SERIES_ID);
       let relatedProv = find(provenances, p => p.PROV_ID === item.PROV_ID);
-      if (relatedProv)
+      if (relatedProv && relatedSeries) {
         relatedProv = { ...relatedProv, ...relatedProv.PROVENANCE[0] };
 
-      console.log("item.TITLEINS", item.TITLEINS);
+        console.log("item.TITLEINS", item.TITLEINS);
 
-      dataset.push({
-        index: { _index: "archives", _id: item._id }
-      });
-      dataset.push({
-        name: item.TITLEINS,
-        description: item.TITLEDET,
-        provenanceName: item.IPROVENANC,
-        provenanceId: item.PROV_ID,
-        slugifiedProvId: item.slugifiedProvId,
-        seriesName: relatedSeries.STITLEINS,
-        seriesId: item.SERIES_ID,
-        slugifiedSeriesId: item.slugifiedSeriesId,
-        itemId: item.CONTROL,
-        formats: item.formats,
-        from: formatDate(relatedProv.PSTARTDATE),
-        to: formatDate(relatedProv.PENDDATE),
-        slug: item.slug,
-        type: "item"
-      });
+        dataset.push({
+          index: { _index: "archives", _id: item._id }
+        });
+        dataset.push({
+          name: item.TITLEINS,
+          description: item.TITLEDET,
+          provenanceName: item.IPROVENANC,
+          provenanceId: item.PROV_ID,
+          slugifiedProvId: item.slugifiedProvId,
+          seriesName: relatedSeries.STITLEINS,
+          seriesId: item.SERIES_ID,
+          slugifiedSeriesId: item.slugifiedSeriesId,
+          itemId: item.CONTROL,
+          formats: item.formats,
+          from: formatDate(relatedProv.PSTARTDATE),
+          to: formatDate(relatedProv.PENDDATE),
+          slug: item.slug,
+          type: "item"
+        });
+      }
     });
 
     return elasticClient.indices
@@ -138,7 +139,10 @@ mongoClient.connect(function(err) {
           .bulk({
             body: dataset
           })
-          .then(() => mongoClient.close());
+          .then(() => {
+            console.log("All Done :)");
+            mongoClient.close();
+          });
       });
   });
 });

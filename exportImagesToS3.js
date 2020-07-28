@@ -98,14 +98,19 @@ function exportImages(db, provenance) {
     }
   }
 
-  if (hasArchiveImage || hasHeroImage) {
+  if (!hasArchiveImage) {
     return db
       .collection("Archive_provenance")
-      .updateOne(
-        { _id: provenance._id },
-        { $set: { hasArchiveImage, hasHeroImage } }
-      );
+      .deleteOne({ _id: provenance._id });
   }
+  // if (hasArchiveImage || hasHeroImage) {
+  //   return db
+  //     .collection("Archive_provenance")
+  //     .updateOne(
+  //       { _id: provenance._id },
+  //       { $set: { hasArchiveImage, hasHeroImage } }
+  //     );
+  // }
   // if (provenance.HTMLPHOTOS && provenance.HTMLPHOTOS.length) {
   //   forEach(provenance.HTMLPHOTOS, image => {
   //     if (!image || !image.JPG) return;
@@ -137,8 +142,8 @@ client.connect(function(err) {
   return db
     .collection("Archive_provenance")
     .find({
-      // $or: [{ PROV_ID: { $regex: /^A/i } }, { PROV_ID: { $regex: /^SAMA/i } }]
-      PROV_ID: "AA1"
+      $or: [{ PROV_ID: { $regex: /^A/i } }, { PROV_ID: { $regex: /^SAMA/i } }]
+      // PROV_ID: "AA1"
     })
     .toArray()
     .then(provenances => {
