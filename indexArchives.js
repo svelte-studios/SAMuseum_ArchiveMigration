@@ -1,8 +1,13 @@
+require("dotenv").config();
 const MongoClient = require("mongodb").MongoClient;
 const assert = require("assert");
 const { Client } = require("@elastic/elasticsearch");
-const { forEach, find } = require("lodash");
+const connectionClass = require("http-aws-es");
+const elasticsearch = require("elasticsearch");
+// const AwsElastic = require("aws-elasticsearch-client");
+const { forEach, find, chunk } = require("lodash");
 const moment = require("moment");
+const AWS = require("aws-sdk");
 
 const autocomplete = require("./autocomplete.js");
 
@@ -11,7 +16,19 @@ const url = "mongodb://localhost:27017";
 const dbName = "sam_website";
 const mongoClient = new MongoClient(url);
 
-const elasticClient = new Client({ node: "http://localhost:9200" });
+const config = {
+  awsConfig: new AWS.Config({
+    accessKeyId: process.env.ELASTICSEARCH_USERID,
+    secretAccessKey: process.env.ELASTICSEARCH_USERSECRET,
+    region: "ap-southeast-2"
+  }),
+  connectionClass,
+  hosts: [process.env.ELASTICSEARCH_HOST],
+  requestTimeout: 60000
+};
+
+// const elasticClient = new Client({ node: "http://localhost:9200" });
+const elasticClient = new elasticsearch.Client(config);
 
 function formatDate(date) {
   console.log("formatDate -> date", date);
@@ -42,7 +59,7 @@ mongoClient.connect(function(err) {
     db
       .collection("Archive_inventory")
       .find({ _id: { $exists: true, $ne: "" } })
-      // .limit(100)
+      // .limit(10000)
       .toArray()
   ]).then(([provenances, series, items]) => {
     const dataset = [];
@@ -135,14 +152,26 @@ mongoClient.connect(function(err) {
         }
       })
       .then(() => {
-        return elasticClient
-          .bulk({
-            body: dataset
-          })
-          .then(() => {
-            console.log("All Done :)");
-            mongoClient.close();
+        console.log("dataset", dataset);
+        const chunkedOps = chunk(dataset, 5000);
+        console.log("chunkedOps.length", chunkedOps.length);
+        let promiseChain = Promise.resolve();
+
+        forEach(chunkedOps, subset => {
+          promiseChain = promiseChain.then(() => {
+            return elasticClient.bulk({
+              body: subset
+            });
           });
+        });
+        // return elasticClient
+        //   .bulk({
+        //     body: dataset
+        //   })
+        return promiseChain.then(() => {
+          console.log("All Done :)");
+          mongoClient.close();
+        });
       });
   });
 });

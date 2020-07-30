@@ -155,30 +155,30 @@ client.connect(function(err) {
   });
 
   return promiseChain.then(() => {
-    return db
-      .collection("competitionEntries")
-      .find({ iterationId: "2020" })
-      .toArray()
-      .then(entries => {
-        entries = shuffle(entries);
-        const ops = map(entries, e => {
-          return {
-            updateOne: {
-              filter: { _id: e._id },
-              update: { $set: e },
-              upsert: true
-            }
-          };
-        });
-        return db
-          .collection("competitionEntries")
-          .deleteMany({ iterationId: "2020" })
-          .then(() => {
-            return db
-              .collection("competitionEntries")
-              .bulkWrite(ops, { ordered: true });
-          });
-      });
+    // return db
+    //   .collection("competitionEntries")
+    //   .find({ iterationId: "2020" })
+    //   .toArray()
+    //   .then(entries => {
+    //     entries = shuffle(entries);
+    //     const ops = map(entries, e => {
+    //       return {
+    //         updateOne: {
+    //           filter: { _id: e._id },
+    //           update: { $set: e },
+    //           upsert: true
+    //         }
+    //       };
+    //     });
+    //     return db
+    //       .collection("competitionEntries")
+    //       .deleteMany({ iterationId: "2020" })
+    //       .then(() => {
+    //         return db
+    //           .collection("competitionEntries")
+    //           .bulkWrite(ops, { ordered: true });
+    //       });
+    //   });
     // client.close();
   });
 });
