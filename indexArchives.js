@@ -31,15 +31,17 @@ const config = {
 const elasticClient = new elasticsearch.Client(config);
 
 function formatDate(date) {
-  console.log("formatDate -> date", date);
   if (!date) return "";
   if (date.match(/\//)) {
     return moment(date, "DD/MM/YYYY").toDate();
   }
   if (date.match(/ /)) {
+    if (date.match(/[A-Z]/i)) {
+      return moment(date, "DD MMM YYYY").toDate();
+    }
     return moment(date, "DD MM YYYY").toDate();
   }
-  return moment(date).toDate();
+  return moment(date).toDate() || "";
 }
 
 mongoClient.connect(function(err) {
@@ -59,7 +61,8 @@ mongoClient.connect(function(err) {
     db
       .collection("Archive_inventory")
       .find({ _id: { $exists: true, $ne: "" } })
-      // .limit(10000)
+      // .find({ slugifiedProvId: "aa-671" })
+      // .limit(1)
       .toArray()
   ]).then(([provenances, series, items]) => {
     const dataset = [];
@@ -69,12 +72,10 @@ mongoClient.connect(function(err) {
       if (relatedProv && relatedSeries) {
         relatedProv = { ...relatedProv, ...relatedProv.PROVENANCE[0] };
 
-        console.log("item.TITLEINS", item.TITLEINS);
-
         dataset.push({
           index: { _index: "archives", _id: item._id }
         });
-        dataset.push({
+        const fields = {
           name: item.TITLEINS,
           description: item.TITLEDET,
           provenanceName: item.IPROVENANC,
@@ -84,12 +85,19 @@ mongoClient.connect(function(err) {
           seriesId: item.SERIES_ID,
           slugifiedSeriesId: item.slugifiedSeriesId,
           itemId: item.CONTROL,
-          formats: item.formats,
-          from: formatDate(relatedProv.PSTARTDATE),
-          to: formatDate(relatedProv.PENDDATE),
+          formats: item.formats || "",
+          // from: formatDate(relatedProv.PSTARTDATE),
+          // to: formatDate(relatedProv.PENDDATE),
           slug: item.slug,
           type: "item"
-        });
+        };
+
+        if (formatDate(relatedProv.PSTARTDATE))
+          fields.from = formatDate(relatedProv.PSTARTDATE);
+        if (formatDate(relatedProv.PENDDATE))
+          fields.to = formatDate(relatedProv.PENDDATE);
+
+        dataset.push(fields);
       }
     });
 
@@ -152,13 +160,14 @@ mongoClient.connect(function(err) {
         }
       })
       .then(() => {
-        console.log("dataset", dataset);
         const chunkedOps = chunk(dataset, 5000);
         console.log("chunkedOps.length", chunkedOps.length);
         let promiseChain = Promise.resolve();
 
-        forEach(chunkedOps, subset => {
+        forEach(chunkedOps, (subset, index) => {
+          console.log("subset.length", subset.length);
           promiseChain = promiseChain.then(() => {
+            console.log("indexing chunk ", index);
             return elasticClient.bulk({
               body: subset
             });
