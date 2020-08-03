@@ -78,9 +78,9 @@ mongoClient.connect(function(err) {
         const fields = {
           name: item.TITLEINS,
           description: item.TITLEDET,
-          provenanceName: item.IPROVENANC,
-          provenanceId: item.PROV_ID,
-          slugifiedProvId: item.slugifiedProvId,
+          collectionName: item.IPROVENANC,
+          collectionId: item.PROV_ID,
+          slugifiedCollectionId: item.slugifiedProvId,
           seriesName: relatedSeries.STITLEINS,
           seriesId: item.SERIES_ID,
           slugifiedSeriesId: item.slugifiedSeriesId,
@@ -123,15 +123,15 @@ mongoClient.connect(function(err) {
                 analyzer: "autocomplete",
                 search_analyzer: "autocomplete_search"
               },
-              provenanceId: {
+              collectionId: {
                 type: "text"
               },
-              provenanceName: {
+              collectionName: {
                 type: "text",
                 analyzer: "autocomplete",
                 search_analyzer: "autocomplete_search"
               },
-              slugifiedProvId: {
+              slugifiedCollectionId: {
                 type: "text"
               },
               seriesId: {
