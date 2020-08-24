@@ -267,7 +267,7 @@ client.connect(function(err) {
       });
 
       return promiseChain.then(() => {
-        client.close();
+        // client.close();
       });
     })
     .catch(err => {

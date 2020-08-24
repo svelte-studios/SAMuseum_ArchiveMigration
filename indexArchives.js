@@ -27,8 +27,8 @@ const config = {
   requestTimeout: 60000
 };
 
-// const elasticClient = new Client({ node: "http://localhost:9200" });
-const elasticClient = new elasticsearch.Client(config);
+const elasticClient = new Client({ node: "http://localhost:9200" });
+// const elasticClient = new elasticsearch.Client(config);
 
 function formatDate(date) {
   if (!date) return "";
@@ -61,7 +61,7 @@ mongoClient.connect(function(err) {
     db
       .collection("Archive_inventory")
       .find({ _id: { $exists: true, $ne: "" } })
-      // .find({ slugifiedProvId: "aa-671" })
+      // .find({ _id: "aa-778-13" })
       // .limit(1)
       .toArray()
   ]).then(([provenances, series, items]) => {
@@ -86,8 +86,6 @@ mongoClient.connect(function(err) {
           slugifiedSeriesId: item.slugifiedSeriesId,
           itemId: item.CONTROL,
           formats: item.formats || "",
-          // from: formatDate(relatedProv.PSTARTDATE),
-          // to: formatDate(relatedProv.PENDDATE),
           slug: item.slug,
           type: "item"
         };

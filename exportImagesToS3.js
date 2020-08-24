@@ -126,8 +126,9 @@ function exportImages(db, provenance) {
 // );
 
 // const url =
-//   "mongodb+srv://jake:nSTpXARKE48oeRCU@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
+//   "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
 const url = "mongodb://localhost:27017";
+// const dbName = "sam_website_staging";
 const dbName = "sam_website";
 
 const client = new MongoClient(url);
@@ -142,16 +143,16 @@ client.connect(function(err) {
   return db
     .collection("Archive_provenance")
     .find({
-      $or: [{ PROV_ID: { $regex: /^A/i } }, { PROV_ID: { $regex: /^SAMA/i } }]
+      // $or: [{ PROV_ID: { $regex: /^A/i } }, { PROV_ID: { $regex: /^SAMA/i } }]
       // PROV_ID: "AA1"
     })
     .toArray()
     .then(provenances => {
       console.log("provenances length", provenances.length);
       let promiseChain = Promise.resolve();
-      promiseChain = promiseChain.then(() => {
-        exportTindaleImages();
-      });
+      // promiseChain = promiseChain.then(() => {
+      //   exportTindaleImages();
+      // });
       forEach(provenances, provenance => {
         promiseChain = promiseChain.then(() => {
           exportImages(db, provenance);
