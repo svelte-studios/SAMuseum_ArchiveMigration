@@ -81,8 +81,8 @@ function exportImage(db, entry) {
       },
       { upsert: true }
     );
-    // });
   });
+  // });
 }
 
 // const url =
@@ -171,7 +171,7 @@ client.connect(function(err) {
               .bulkWrite(ops, { ordered: true });
           });
       });
-    // client.close();
+    client.close();
   });
 });
 

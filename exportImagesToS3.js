@@ -1,8 +1,8 @@
-const { forEach, find } = require("lodash");
+const { forEach, find, map } = require("lodash");
 const MongoClient = require("mongodb").MongoClient;
 const assert = require("assert");
 const MIGRATION_DIR = process.cwd() + "/HDMS/"; //process.cwd() + "/mongo/archiveMigration/"
-const { readFile, readdirSync, existsSync } = require("fs");
+const { readFile, readFileSync, readdirSync, existsSync } = require("fs");
 const awsSDK = require("aws-sdk");
 require("dotenv").config();
 
@@ -55,21 +55,21 @@ function exportTindaleImages() {
 }
 
 function exportImages(db, provenance) {
+  console.log("exportImages -> provenance.PROV_ID", provenance.PROV_ID);
   const folderName = provenance.PROV_ID.replace(/\s/g, "");
   let hasArchiveImage = false;
+  let inventoryImagesData = [];
   let hasHeroImage = false;
-  console.log("exportImages -> folderName", folderName);
   readFile(
     `${MIGRATION_DIR}${folderName}/web/images/hero.jpg`,
     (err, heroImage) => {
       if (heroImage) {
-        console.log("exportImages -> heroImage", heroImage);
         hasHeroImage = true;
-        uploadImage(
-          heroImage,
-          provenance.PROV_ID,
-          `${provenance.PROV_ID}_hero`
-        );
+        // uploadImage(
+        //   heroImage,
+        //   provenance.PROV_ID,
+        //   `${provenance.PROV_ID}_hero`
+        // );
       }
     }
   );
@@ -88,20 +88,113 @@ function exportImages(db, provenance) {
       readFile(
         `${MIGRATION_DIR}${folderName}/Documentation/${provPageImage}`,
         (err, imageFile) => {
-          uploadImage(
-            imageFile,
-            provenance.PROV_ID,
-            `${provenance.PROV_ID}_archives`
-          );
+          // uploadImage(
+          //   imageFile,
+          //   provenance.PROV_ID,
+          //   `${provenance.PROV_ID}_archives`
+          // );
         }
       );
     }
   }
 
+  if (existsSync(`${MIGRATION_DIR}${folderName}/web/images`)) {
+    const inventoryImages = readdirSync(
+      `${MIGRATION_DIR}${folderName}/web/images`,
+      { withFileTypes: true }
+    )
+      .filter(dirent => dirent.isDirectory())
+      .map(dirent => dirent.name);
+    console.log("inventoryImages", inventoryImages);
+    forEach(inventoryImages, imageFolder => {
+      if (
+        existsSync(
+          `${MIGRATION_DIR}${folderName}/web/images/${imageFolder}/large`
+        )
+      ) {
+        const largeImages = readdirSync(
+          `${MIGRATION_DIR}${folderName}/web/images/${imageFolder}/large`,
+          { withFileTypes: true }
+        )
+          .filter(dirent => dirent.isFile())
+          .map(dirent => dirent.name);
+
+        const currentImages = { id: imageFolder, images: [] };
+
+        forEach(largeImages, imageName => {
+          // console.log(
+          //   "`${provenance.PROV_ID}/${imageFolder}`",
+          //   `${provenance.PROV_ID}/${imageFolder}`
+          // );
+          // console.log("imageName", imageName);
+          if (imageName.match(/(\.jpg)/gi)) {
+            // readFile(
+            //   `${MIGRATION_DIR}${folderName}/web/images/${imageFolder}/large/${imageName}`,
+            //   (err, imageFile) => {
+            //     console.log("imageName", imageName);
+
+            //     if (imageFile) {
+            //       currentImages.images.push(imageName);
+            //       // uploadImage(
+            //       //   imageFile,
+            //       //   `${provenance.PROV_ID}/inventoryImages/${imageFolder}`,
+            //       //   imageName
+            //       // );
+            //     }
+            //   }
+            // );
+            const imageFile = readFileSync(
+              `${MIGRATION_DIR}${folderName}/web/images/${imageFolder}/large/${imageName}`
+            );
+            console.log("imageName", imageName);
+
+            if (imageFile) {
+              currentImages.images.push(imageName);
+              // uploadImage(
+              //   imageFile,
+              //   `${provenance.PROV_ID}/inventoryImages/${imageFolder}`,
+              //   imageName
+              // );
+            }
+          }
+        });
+
+        console.log("currentImages", currentImages);
+        if (currentImages.images.length) {
+          inventoryImagesData.push(currentImages);
+        }
+      }
+    });
+  }
+
+  console.log("inventoryImagesData", inventoryImagesData);
   if (!hasArchiveImage) {
     return db
       .collection("Archive_provenance")
       .deleteOne({ _id: provenance._id });
+  } else if (inventoryImagesData.length) {
+    // console.log("Uploading images for: ", provenance.PROV_ID);
+    // console.log("Count: ", inventoryImagesData.length);
+    const ops = map(inventoryImagesData, i => {
+      return {
+        updateOne: {
+          filter: { ITEM_ID: i.id },
+          update: {
+            $set: { images: i.images }
+          }
+        }
+      };
+    });
+
+    if (ops && ops.length)
+      return db
+        .collection("Archive_inventory")
+        .bulkWrite(ops, { ordered: false });
+    else {
+      return db
+        .collection("Archive_inventory")
+        .updateMany({ PROV_ID: provenance.PROV_ID }, { images: [] });
+    }
   }
   // if (hasArchiveImage || hasHeroImage) {
   //   return db
@@ -143,8 +236,7 @@ client.connect(function(err) {
   return db
     .collection("Archive_provenance")
     .find({
-      // $or: [{ PROV_ID: { $regex: /^A/i } }, { PROV_ID: { $regex: /^SAMA/i } }]
-      // PROV_ID: "AA1"
+      // PROV_ID: "AA169"
     })
     .toArray()
     .then(provenances => {

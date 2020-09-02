@@ -86,6 +86,7 @@ client.connect(function(err) {
     if (
       folder.toLowerCase().substr(0, 2) === "aa" ||
       folder.toLowerCase().substr(0, 4) === "sama"
+      // folder.toLowerCase().substr(0, 3) === "aa8"
     ) {
       directoryPromise.push(readAndExecute(folder));
     }
@@ -133,8 +134,10 @@ client.connect(function(err) {
           ? doc.PROV_NAME.substring(0, 1)
           : "";
 
+        doc.formattedName = doc.formattedName || doc.PROV_NAME;
+
         let inventory = filter(doc.INVENTORY, i => i.ITEM_ID && i.CONTROL);
-        console.log("inventory", inventory);
+
         let series = doc.SERIES;
 
         series = map(series, s => {
@@ -231,7 +234,8 @@ client.connect(function(err) {
               .collection("Archive_provenance")
               .insertOne(
                 {
-                  ...pickBy(doc, identity)
+                  ...pickBy(doc, identity),
+                  _id: doc.PROV_ID
                 },
                 {
                   w: "majority",
