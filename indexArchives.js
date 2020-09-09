@@ -11,6 +11,8 @@ const AWS = require("aws-sdk");
 
 const autocomplete = require("./autocomplete.js");
 
+// const url =
+//   "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
 const url = "mongodb://localhost:27017";
 
 const dbName = "sam_website";
