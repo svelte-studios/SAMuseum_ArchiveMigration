@@ -64,10 +64,17 @@ function exportImage(db, item, detail) {
     fromBackup: true
   };
 
-  entry.category =
-    detail.Category && detail.Category[0]
-      ? categories[detail.Category[0].StringValue]
-      : "";
+  if (entry.iterationId === "2018" || entry.iterationId === "2016") {
+    if (entry.backupText.match(/Category: Open|Open Category/gi))
+      entry.category = "Open Category";
+    else if (entry.backupText.match(/Category: Emerging|Emerging Category/gi))
+      entry.category = "Emerging Artist";
+  } else {
+    entry.category =
+      detail.Category && detail.Category[0]
+        ? categories[detail.Category[0].StringValue]
+        : "";
+  }
 
   entry.awardWinner =
     detail.IsAWinner && detail.IsAWinner[0].BoolValue === "True" ? true : false;
@@ -82,23 +89,23 @@ function exportImage(db, item, detail) {
 
   return readFile(pathToFile, (err, image) => {
     if (!image) console.log("No Image Found for: ", entry.title);
-    uploadImage(image, `images/${entry.path}`).then(() => {
-      return db.collection("competitionEntries").updateOne(
-        { _id: entry._id },
-        {
-          $set: entry
-        },
-        { upsert: true }
-      );
-    });
+    // uploadImage(image, `images/${entry.path}`).then(() => {
+    return db.collection("competitionEntries").updateOne(
+      { _id: entry._id },
+      {
+        $set: entry
+      },
+      { upsert: true }
+    );
+    // });
   });
 }
 
-// const url =
-//   "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
-const url = "mongodb://localhost:27017?retryWrites=true&rs=true";
-// const dbName = "sam_website_staging";
-const dbName = "sam_website";
+const url =
+  "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
+// const url = "mongodb://localhost:27017?retryWrites=true&rs=true";
+const dbName = "sam_website_staging";
+// const dbName = "sam_website";
 
 const client = new MongoClient(url);
 
@@ -115,8 +122,6 @@ client.connect(function(err) {
   let promiseChain = Promise.resolve();
 
   details = groupBy(details, "ItemID");
-
-  console.log("importYear", importYear);
 
   return db
     .collection("competitionEntries")

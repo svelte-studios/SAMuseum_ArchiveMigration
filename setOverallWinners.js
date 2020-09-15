@@ -14,10 +14,10 @@ client.connect(function(err) {
   assert.equal(null, err);
   console.log("Connected successfully to server");
   const db = client.db(dbName);
-  return db.collection("competitionEntries").updateMany(
-    {
-      $or: [{ award: { $exists: true, $ne: "" } }, { portfolioPrize: true }]
-    },
-    { $set: { awardWinner: true } }
-  );
+  return db
+    .collection("competitionEntries")
+    .updateMany(
+      { award: { $regex: /Overall Winner/gi } },
+      { $set: { overallWinner: true } }
+    );
 });

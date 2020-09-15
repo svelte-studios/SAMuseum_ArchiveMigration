@@ -1,5 +1,6 @@
 const MongoClient = require("mongodb").MongoClient;
 const assert = require("assert");
+const { forEach } = require("lodash");
 require("dotenv").config();
 
 // const url =
@@ -14,10 +15,19 @@ client.connect(function(err) {
   assert.equal(null, err);
   console.log("Connected successfully to server");
   const db = client.db(dbName);
-  return db.collection("competitionEntries").updateMany(
-    {
-      $or: [{ award: { $exists: true, $ne: "" } }, { portfolioPrize: true }]
-    },
-    { $set: { awardWinner: true } }
-  );
+  return db
+    .collection("competitionEntries")
+    .find({ status: { $exists: true } })
+    .toArray()
+    .then(entries => {
+      forEach(entries, e => {
+        return db.collection("competitionEntries").update(
+          { _id: e._id },
+          {
+            $set: { conservationStatus: e.status },
+            $unset: { status: 1 }
+          }
+        );
+      });
+    });
 });

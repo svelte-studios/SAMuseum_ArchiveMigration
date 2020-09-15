@@ -50,23 +50,24 @@ function exportImage(db, entry) {
   const imagePath = `competition/Waterhouse/2020/${entry.category}/small/${entry.fileName}`;
 
   readFile(pathToFile, (err, image) => {
-    if (entry.title === "Adrift (∆Asea-ice)")
-      console.log("exportImage -> Video: ", image);
-    if (!image) console.log("exportImage -> NO IMAGE: ", entry);
-    uploadImage(image, `images/${imagePath}`).then(() => {
-      return db.collection("competitionEntries").updateOne(
-        { _id: `${entry.category}_${entry.title}` },
-        {
-          $set: {
-            ...entry,
-            path: imagePath,
-            competitionId: "Waterhouse",
-            iterationId: "2020"
-          }
-        },
-        { upsert: true }
-      );
-    });
+    if (!image) {
+      console.log("ENTRY WITHOUT IMAGE: ", entry);
+      console.log("exportImage -> pathToFile", pathToFile);
+    }
+    // uploadImage(image, `images/${imagePath}`).then(() => {
+    return db.collection("competitionEntries").updateOne(
+      { _id: `${entry.category}_${entry.title}` },
+      {
+        $set: {
+          ...entry,
+          path: imagePath,
+          competitionId: "Waterhouse",
+          iterationId: "2020"
+        }
+      },
+      { upsert: true }
+    );
+    // });
   });
 }
 
@@ -88,18 +89,23 @@ client.connect(function(err) {
 
   let promiseChain = Promise.resolve();
 
-  forEach(jsonObj, (entries, category) => {
-    forEach(entries, entry => {
-      entry.category = category;
-      entry.photographer = `${entry.firstName} ${entry.surname}`;
-      if (entry.fileName && entry.fileName.match(/mp4/)) entry.video = true;
-      promiseChain = promiseChain.then(() => {
-        exportImage(db, entry);
+  return db
+    .collection("competitionEntries")
+    .deleteMany({ competitionId: "Waterhouse", iterationId: "2020" })
+    .then(() => {
+      forEach(jsonObj, (entries, category) => {
+        forEach(entries, entry => {
+          entry.category = category;
+          entry.photographer = `${entry.firstName} ${entry.surname}`;
+          if (entry.fileName && entry.fileName.match(/mp4/)) entry.video = true;
+          promiseChain = promiseChain.then(() => {
+            exportImage(db, entry);
+          });
+        });
       });
-    });
-  });
 
-  return promiseChain.then(() => {});
+      return promiseChain.then(() => {});
+    });
 });
 
 const csvConfig = {
@@ -109,7 +115,7 @@ const csvConfig = {
   },
   sheets: [
     {
-      name: "Open",
+      name: "Open Category",
       columnToKey: {
         A: "firstName",
         B: "surname",
