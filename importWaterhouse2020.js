@@ -49,25 +49,30 @@ function exportImage(db, entry) {
 
   const imagePath = `competition/Waterhouse/2020/${entry.category}/small/${entry.fileName}`;
 
+  if (entry.fileName && entry.fileName.match(/mp4/)) {
+    entry.video = true;
+    entry.videoThumbnail = imagePath.replace(/.mp4/, "-thumbnail.jpg");
+  }
+
   readFile(pathToFile, (err, image) => {
     if (!image) {
       console.log("ENTRY WITHOUT IMAGE: ", entry);
       console.log("exportImage -> pathToFile", pathToFile);
     }
-    // uploadImage(image, `images/${imagePath}`).then(() => {
-    return db.collection("competitionEntries").updateOne(
-      { _id: `${entry.category}_${entry.title}` },
-      {
-        $set: {
-          ...entry,
-          path: imagePath,
-          competitionId: "Waterhouse",
-          iterationId: "2020"
-        }
-      },
-      { upsert: true }
-    );
-    // });
+    uploadImage(image, `images/${imagePath}`).then(() => {
+      return db.collection("competitionEntries").updateOne(
+        { _id: `${entry.category}_${entry.title}` },
+        {
+          $set: {
+            ...entry,
+            path: imagePath,
+            competitionId: "Waterhouse",
+            iterationId: "2020"
+          }
+        },
+        { upsert: true }
+      );
+    });
   });
 }
 
@@ -96,8 +101,9 @@ client.connect(function(err) {
       forEach(jsonObj, (entries, category) => {
         forEach(entries, entry => {
           entry.category = category;
-          entry.photographer = `${entry.firstName} ${entry.surname}`;
-          if (entry.fileName && entry.fileName.match(/mp4/)) entry.video = true;
+          entry.photographer = entry.altArtist
+            ? entry.altArtist
+            : `${entry.firstName} ${entry.surname}`;
           promiseChain = promiseChain.then(() => {
             exportImage(db, entry);
           });
@@ -122,7 +128,8 @@ const csvConfig = {
         C: "title",
         D: "material",
         E: "description",
-        F: "fileName"
+        F: "fileName",
+        G: "altArtist"
       }
     },
     {
