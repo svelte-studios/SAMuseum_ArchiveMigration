@@ -55,7 +55,6 @@ function exportTindaleImages() {
 }
 
 function exportImages(db, provenance) {
-  console.log("exportImages -> provenance.PROV_ID", provenance.PROV_ID);
   const folderName = provenance.PROV_ID.replace(/\s/g, "");
   let hasArchiveImage = false;
   let inventoryImagesData = [];
@@ -105,7 +104,6 @@ function exportImages(db, provenance) {
     )
       .filter(dirent => dirent.isDirectory())
       .map(dirent => dirent.name);
-    console.log("inventoryImages", inventoryImages);
     forEach(inventoryImages, imageFolder => {
       if (
         existsSync(
@@ -122,11 +120,6 @@ function exportImages(db, provenance) {
         const currentImages = { id: imageFolder, images: [] };
 
         forEach(largeImages, imageName => {
-          // console.log(
-          //   "`${provenance.PROV_ID}/${imageFolder}`",
-          //   `${provenance.PROV_ID}/${imageFolder}`
-          // );
-          // console.log("imageName", imageName);
           if (imageName.match(/(\.jpg)/gi)) {
             // readFile(
             //   `${MIGRATION_DIR}${folderName}/web/images/${imageFolder}/large/${imageName}`,
@@ -135,18 +128,12 @@ function exportImages(db, provenance) {
 
             //     if (imageFile) {
             //       currentImages.images.push(imageName);
-            //       // uploadImage(
-            //       //   imageFile,
-            //       //   `${provenance.PROV_ID}/inventoryImages/${imageFolder}`,
-            //       //   imageName
-            //       // );
             //     }
             //   }
             // );
             const imageFile = readFileSync(
               `${MIGRATION_DIR}${folderName}/web/images/${imageFolder}/large/${imageName}`
             );
-            console.log("imageName", imageName);
 
             if (imageFile) {
               currentImages.images.push(imageName);
@@ -159,7 +146,6 @@ function exportImages(db, provenance) {
           }
         });
 
-        console.log("currentImages", currentImages);
         if (currentImages.images.length) {
           inventoryImagesData.push(currentImages);
         }
@@ -167,20 +153,27 @@ function exportImages(db, provenance) {
     });
   }
 
-  console.log("inventoryImagesData", inventoryImagesData);
   if (!hasArchiveImage) {
     return db
       .collection("Archive_provenance")
-      .deleteOne({ _id: provenance._id });
+      .updateOne({ _id: provenance._id }, { $set: { showLive: false } });
+    // .deleteOne({ _id: provenance._id });
   } else if (inventoryImagesData.length) {
     // console.log("Uploading images for: ", provenance.PROV_ID);
     // console.log("Count: ", inventoryImagesData.length);
     const ops = map(inventoryImagesData, i => {
+      console.log("i.images", i.images);
       return {
         updateOne: {
           filter: { ITEM_ID: i.id },
           update: {
-            $set: { images: i.images }
+            $set: {
+              multimedia: map(i.images, image => ({
+                image: {
+                  imageId: `archives/${provenance.PROV_ID}/inventoryImages/${i.id}/${image}`
+                }
+              }))
+            }
           }
         }
       };
@@ -196,24 +189,6 @@ function exportImages(db, provenance) {
         .updateMany({ PROV_ID: provenance.PROV_ID }, { images: [] });
     }
   }
-  // if (hasArchiveImage || hasHeroImage) {
-  //   return db
-  //     .collection("Archive_provenance")
-  //     .updateOne(
-  //       { _id: provenance._id },
-  //       { $set: { hasArchiveImage, hasHeroImage } }
-  //     );
-  // }
-  // if (provenance.HTMLPHOTOS && provenance.HTMLPHOTOS.length) {
-  //   forEach(provenance.HTMLPHOTOS, image => {
-  //     if (!image || !image.JPG) return;
-  //     const imageUrl = `${MIGRATION_DIR}${provenance.PROV_ID}/web/${image.JPG}`;
-  //     readFile(imageUrl, (err, imageFile) => {
-  //       uploadImage(imageFile, image.JPG);
-  //       console.log("exportImages -> imageUrl", imageUrl);
-  //     });
-  //   });
-  // }
 }
 // }
 // );
@@ -240,7 +215,6 @@ client.connect(function(err) {
     })
     .toArray()
     .then(provenances => {
-      console.log("provenances length", provenances.length);
       let promiseChain = Promise.resolve();
       // promiseChain = promiseChain.then(() => {
       //   exportTindaleImages();

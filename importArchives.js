@@ -5,6 +5,7 @@ const MIGRATION_DIR = process.cwd() + "/HDMS/"; //process.cwd() + "/mongo/archiv
 const { readdirSync } = require("fs");
 const csv = require("csvtojson");
 const slugify = require("slugify");
+const moment = require("moment");
 
 const formatsMap = {
   PUBBOOK: "Books",
@@ -44,14 +45,37 @@ const MAIN_FILES = [
 ];
 
 const constructFormats = item => {
-  let searchField = "";
+  let formats = [];
   forEach(formatsMap, (format, key) => {
-    if (item[key] === "1")
-      if (searchField) searchField = searchField.concat(`, ${format}`);
-      else searchField = format;
+    if (item[key] === "1") formats.push(format);
   });
-  return searchField;
+  return formats;
 };
+
+const formatDate = date => {
+  console.log("formatDate -> date", date);
+  if (!date) return "";
+  if (date.match(/\//)) {
+    return moment(date, "DD/MM/YYYY").toDate();
+  }
+  if (date.match(/ /)) {
+    if (date.match(/[A-Z]/i)) {
+      return moment(date, "DD MMM YYYY").toDate();
+    }
+    return moment(date, "DD MM YYYY").toDate();
+  }
+  return moment(date).toDate() || "";
+};
+
+// const constructFormats = item => {
+//   let searchField = "";
+//   forEach(formatsMap, (format, key) => {
+//     if (item[key] === "1")
+//       if (searchField) searchField = searchField.concat(`, ${format}`);
+//       else searchField = format;
+//   });
+//   return searchField;
+// };
 
 const getDirectories = source =>
   readdirSync(source, { withFileTypes: true })
@@ -65,14 +89,12 @@ const getCsvFiles = source =>
     })
     .map(dirent => dirent.name);
 
-// Connection URL
 // const url =
 //   "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
 const url = "mongodb://localhost:27017";
-// Database Name
 // const dbName = "sam_website_staging";
 const dbName = "sam_website";
-// Create a new MongoClient
+
 const client = new MongoClient(url);
 
 // Use connect method to connect to the Server
@@ -97,10 +119,10 @@ client.connect(function(err) {
       forEach(results, doc => {
         if (doc.PROV_ID) {
           doc.slug = `/collection/archives/provenances/${slugify(
-            doc.PROV_ID.replace(/\//, "-"),
+            doc.PROV_ID.replace(/\//gi, "-"),
             { lower: true }
           )}`;
-          doc.slugifiedId = slugify(doc.PROV_ID.replace(/\//, "-"), {
+          doc.slugifiedId = slugify(doc.PROV_ID.replace(/\//gi, "-"), {
             lower: true
           });
 
@@ -152,13 +174,13 @@ client.connect(function(err) {
                 "</p>"
               : "",
             slug: `/collection/archives/provenances/series/${slugify(
-              s.SERIES_ID.replace(/\//, "-"),
+              s.SERIES_ID.replace(/\//gi, "-"),
               { lower: true }
             )}`,
-            slugifiedId: slugify(s.SERIES_ID.replace(/\//, "-"), {
+            slugifiedId: slugify(s.SERIES_ID.replace(/\//gi, "-"), {
               lower: true
             }),
-            slugifiedProvId: slugify(s.PROV_ID.replace(/\//, "-"), {
+            slugifiedProvId: slugify(s.PROV_ID.replace(/\//gi, "-"), {
               lower: true
             })
           };
@@ -167,7 +189,7 @@ client.connect(function(err) {
         inventory = map(inventory, i => {
           return {
             ...i,
-            _id: slugify(i.CONTROL.replace(/\//, "-"), {
+            _id: slugify(i.CONTROL.replace(/\//gi, "-"), {
               lower: true
             }),
             formats: constructFormats(i),
@@ -180,22 +202,31 @@ client.connect(function(err) {
                 "</p>"
               : "",
             slug: `/collection/archives/provenances/series/items/${slugify(
-              i.CONTROL.replace(/\//, "-"),
+              i.CONTROL.replace(/\//gi, "-"),
               {
                 lower: true
               }
             )}`,
-            slugifiedSeriesId: slugify(i.SERIES_ID.replace(/\//, "-"), {
+            slugifiedId: slugify(i.CONTROL.replace(/\//gi, "-"), {
               lower: true
             }),
-            slugifiedProvId: slugify(i.PROV_ID.replace(/\//, "-"), {
+            slugifiedSeriesId: slugify(i.SERIES_ID.replace(/\//gi, "-"), {
+              lower: true
+            }),
+            slugifiedProvId: slugify(i.PROV_ID.replace(/\//gi, "-"), {
               lower: true
             })
           };
         });
 
+        if (doc.PROVENANCE && doc.PROVENANCE[0]) {
+          doc.details = doc.PROVENANCE[0];
+          doc.details.PSTARTDATE = formatDate(doc.details.PSTARTDATE);
+          doc.details.PENDDATE = formatDate(doc.details.PENDDATE);
+        }
+
         doc.INVENTORY = map(doc.INVENTORY, i => {
-          return slugify(i.CONTROL.replace(/\//, "-"), {
+          return slugify(i.CONTROL.replace(/\//gi, "-"), {
             lower: true
           });
         });
@@ -232,20 +263,23 @@ client.connect(function(err) {
           promiseChain = promiseChain.then(() =>
             db
               .collection("Archive_provenance")
-              .insertOne(
+              .updateOne(
                 {
-                  ...pickBy(doc, identity),
                   _id: doc.PROV_ID
+                },
+                {
+                  $set: {
+                    ...pickBy(doc, identity),
+                    _id: doc.PROV_ID,
+                    showLive: true
+                  }
                 },
                 {
                   w: "majority",
                   wtimeout: 10000,
-                  serializeFunctions: true
+                  serializeFunctions: true,
+                  upsert: true
                 }
-                // function(err, r) {
-                //   assert.equal(null, err);
-                //   assert.equal(1, r.insertedCount);
-                // }
               )
               .then(() => {
                 if (!inventoryOps.length) return Promise.resolve();
@@ -283,8 +317,6 @@ function readCsv(filePath) {
   return csv()
     .fromFile(filePath)
     .then(function(jsonArrayObj) {
-      //when parse finished, result will be emitted here.
-      //console.log(jsonArrayObj);
       return jsonArrayObj;
     })
     .catch(err => {
@@ -299,7 +331,6 @@ function readAndExecute(folder) {
   var promises = [];
   var fileArray = getCsvFiles(MIGRATION_DIR + folder);
   forEach(fileArray, fileName => {
-    //console.log("HEELL");
     promises.push(readCsv(MIGRATION_DIR + folder + "/" + fileName));
   });
   return Promise.all(promises).then(results => {

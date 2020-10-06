@@ -5,11 +5,12 @@ const { Client } = require("@elastic/elasticsearch");
 const connectionClass = require("http-aws-es");
 const elasticsearch = require("elasticsearch");
 // const AwsElastic = require("aws-elasticsearch-client");
-const { forEach, find, chunk } = require("lodash");
+const { forEach, find, chunk, filter, map } = require("lodash");
 const moment = require("moment");
 const AWS = require("aws-sdk");
 
 const autocomplete = require("./autocomplete.js");
+const htmlToText = require("html-to-text");
 
 // const url =
 //   "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
@@ -33,6 +34,7 @@ const elasticClient = new Client({ node: "http://localhost:9200" });
 // const elasticClient = new elasticsearch.Client(config);
 
 function formatDate(date) {
+  console.log("formatDate -> date", date);
   if (!date) return "";
   if (date.match(/\//)) {
     return moment(date, "DD/MM/YYYY").toDate();
@@ -65,122 +67,192 @@ mongoClient.connect(function(err) {
       .find({ _id: { $exists: true, $ne: "" } })
       // .find({ _id: "aa-778-13" })
       // .limit(1)
+      .toArray(),
+    db
+      .collection("Archive_tribe")
+      .find({
+        _id: { $exists: true, $ne: "" },
+        "inventory.0": { $exists: true }
+      })
+      // .find({ _id: "aa-778-13" })
+      // .limit(1)
       .toArray()
-  ]).then(([provenances, series, items]) => {
+  ]).then(([provenances, series, items, tribes]) => {
     const dataset = [];
     forEach(items, item => {
-      const relatedSeries = find(series, s => s.SERIES_ID === item.SERIES_ID);
-      let relatedProv = find(provenances, p => p.PROV_ID === item.PROV_ID);
-      if (relatedProv && relatedSeries) {
-        relatedProv = { ...relatedProv, ...relatedProv.PROVENANCE[0] };
+      let relatedSeries = {};
+      let relatedProv = {};
+
+      relatedSeries = find(series, s => s.SERIES_ID === item.SERIES_ID);
+
+      if (relatedSeries && relatedSeries._id)
+        relatedProv = find(
+          provenances,
+          p => p.PROV_ID === relatedSeries.PROV_ID
+        );
+      let tribesNames = item.tribeIds
+        ? map(
+            filter(tribes, t => item.tribeIds.includes(t._id)),
+            tribe => tribe.TTRIBE
+          ).join(",")
+        : "";
+
+      if (item._id === "aa713-11") {
+        console.log("FOUND IT");
+        console.log("item", item);
+        console.log("relatedSeries", relatedSeries);
+        console.log("relatedProv", relatedProv);
+      }
+
+      if (
+        relatedProv &&
+        relatedProv._id &&
+        relatedSeries &&
+        relatedSeries._id
+      ) {
+        relatedProv = { ...relatedProv, ...relatedProv.details };
 
         dataset.push({
           index: { _index: "archives", _id: item._id }
         });
         const fields = {
-          name: item.TITLEINS,
+          name: htmlToText.fromString(item.TITLEINS),
           description: item.TITLEDET,
-          collectionName: item.IPROVENANC,
-          collectionId: item.PROV_ID,
+          tribes: tribesNames,
+          collectionId: relatedProv._id,
+          collectionName: htmlToText.fromString(relatedProv.PROV_NAME),
+          collectionCode: item.PROV_ID,
           slugifiedCollectionId: item.slugifiedProvId,
-          seriesName: relatedSeries.STITLEINS,
-          seriesId: item.SERIES_ID,
+          showLive: relatedProv.showLive,
+          seriesId: relatedSeries._id,
+          seriesName: htmlToText.fromString(relatedSeries.STITLEINS),
+          seriesCode: item.SERIES_ID,
           slugifiedSeriesId: item.slugifiedSeriesId,
-          itemId: item.CONTROL,
-          formats: item.formats || "",
-          slug: item.slug,
-          type: "item"
+          itemId: item._id,
+          itemCode: item.CONTROL,
+          formats: item.formats ? item.formats.join(", ") : "",
+          slugifiedId: item.slugifiedId,
+          type: "item",
+          from: relatedProv.PSTARTDATE,
+          to: relatedProv.PENDDATE
         };
 
-        if (formatDate(relatedProv.PSTARTDATE))
-          fields.from = formatDate(relatedProv.PSTARTDATE);
-        if (formatDate(relatedProv.PENDDATE))
-          fields.to = formatDate(relatedProv.PENDDATE);
+        if (item._id === "aa713-11") {
+          console.log("fields", fields);
+        }
+
+        // if (formatDate(relatedProv.PSTARTDATE))
+        //   fields.from = formatDate(relatedProv.PSTARTDATE);
+        // if (formatDate(relatedProv.PENDDATE))
+        //   fields.to = formatDate(relatedProv.PENDDATE);
 
         dataset.push(fields);
       }
     });
 
-    return elasticClient.indices
-      .create({
-        index: "archives",
-        body: {
-          settings: { ...autocomplete },
-          mappings: {
-            properties: {
-              name: {
-                type: "text",
-                analyzer: "autocomplete",
-                search_analyzer: "autocomplete_search",
-                fields: {
-                  raw: {
-                    type: "keyword"
+    return elasticClient.indices.delete({ index: "archives" }).then(() => {
+      return elasticClient.indices
+        .create({
+          index: "archives",
+          body: {
+            settings: { ...autocomplete },
+            mappings: {
+              properties: {
+                name: {
+                  type: "text",
+                  analyzer: "autocomplete",
+                  search_analyzer: "autocomplete_search",
+                  fields: {
+                    raw: {
+                      type: "keyword"
+                    }
                   }
-                }
-              },
-              description: {
-                type: "text",
-                analyzer: "autocomplete",
-                search_analyzer: "autocomplete_search"
-              },
-              collectionId: {
-                type: "text"
-              },
-              collectionName: {
-                type: "text",
-                analyzer: "autocomplete",
-                search_analyzer: "autocomplete_search"
-              },
-              slugifiedCollectionId: {
-                type: "text"
-              },
-              seriesId: {
-                type: "text"
-              },
-              seriesName: {
-                type: "text",
-                analyzer: "autocomplete",
-                search_analyzer: "autocomplete_search"
-              },
-              slugifiedSeriesId: {
-                type: "text"
-              },
-              itemId: {
-                type: "text"
-              },
-              formats: {
-                type: "text"
-              },
-              from: { type: "date" },
-              to: { type: "date" },
-              slug: { type: "text" },
-              type: { type: "text" }
+                },
+                description: {
+                  type: "text",
+                  analyzer: "autocomplete",
+                  search_analyzer: "autocomplete_search"
+                },
+                tribes: {
+                  type: "text",
+                  analyzer: "autocomplete",
+                  search_analyzer: "autocomplete_search"
+                },
+                collectionId: {
+                  type: "keyword"
+                },
+                collectionCode: {
+                  type: "text",
+                  analyzer: "autocomplete",
+                  search_analyzer: "autocomplete_search"
+                },
+                collectionName: {
+                  type: "text",
+                  analyzer: "autocomplete",
+                  search_analyzer: "autocomplete_search"
+                },
+                slugifiedCollectionId: {
+                  type: "text"
+                },
+                showLive: {
+                  type: "keyword"
+                },
+                seriesId: {
+                  type: "keyword"
+                },
+                seriesCode: {
+                  type: "text",
+                  analyzer: "autocomplete",
+                  search_analyzer: "autocomplete_search"
+                },
+                seriesName: {
+                  type: "text",
+                  analyzer: "autocomplete",
+                  search_analyzer: "autocomplete_search"
+                },
+                slugifiedSeriesId: {
+                  type: "text"
+                },
+                itemId: {
+                  type: "keyword"
+                },
+                itemCode: {
+                  type: "keyword"
+                },
+                formats: {
+                  type: "text"
+                },
+                slugifiedId: {
+                  type: "text"
+                },
+                from: { type: "date" },
+                to: { type: "date" },
+                slug: { type: "text" },
+                type: { type: "text" }
+              }
             }
           }
-        }
-      })
-      .then(() => {
-        const chunkedOps = chunk(dataset, 5000);
-        console.log("chunkedOps.length", chunkedOps.length);
-        let promiseChain = Promise.resolve();
+        })
+        .then(() => {
+          const chunkedOps = chunk(dataset, 5000);
+          console.log("chunkedOps.length", chunkedOps.length);
+          let promiseChain = Promise.resolve();
 
-        forEach(chunkedOps, (subset, index) => {
-          console.log("subset.length", subset.length);
-          promiseChain = promiseChain.then(() => {
-            console.log("indexing chunk ", index);
-            return elasticClient.bulk({
-              body: subset
+          forEach(chunkedOps, (subset, index) => {
+            console.log("subset.length", subset.length);
+            promiseChain = promiseChain.then(() => {
+              console.log("indexing chunk ", index);
+              return elasticClient.bulk({
+                body: subset
+              });
             });
           });
+
+          return promiseChain.then(() => {
+            console.log("All Done :)");
+            mongoClient.close();
+          });
         });
-        // return elasticClient
-        //   .bulk({
-        //     body: dataset
-        //   })
-        return promiseChain.then(() => {
-          console.log("All Done :)");
-          mongoClient.close();
-        });
-      });
+    });
   });
 });

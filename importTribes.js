@@ -6,6 +6,11 @@ const { readdirSync } = require("fs");
 const csv = require("csvtojson");
 const slugify = require("slugify");
 const { Client } = require("@elastic/elasticsearch");
+const uniqid = require("uniqid");
+
+const $id = () => {
+  return uniqid.process();
+};
 
 const getCsvFiles = source =>
   readdirSync(source, { withFileTypes: true })
@@ -35,6 +40,7 @@ client.connect(function(err) {
       forEach(results, doc => {
         db.collection("Archive_tribe").insertOne(
           {
+            _id: $id(),
             ...doc,
             slug: `/collection/archives/language_groups/${slugify(
               toLower(doc.TTRIBE)
