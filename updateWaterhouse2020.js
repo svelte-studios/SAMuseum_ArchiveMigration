@@ -8,9 +8,9 @@ require("dotenv").config();
 
 const sourceFile = MIGRATION_DIR + "2020 Waterhouse artwork info updated.xlsx";
 
-const url =
-  "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
-// const url = "mongodb://localhost:27017?retryWrites=true&rs=true";
+// const url =
+//   "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
+const url = "mongodb://localhost:27017?retryWrites=true&rs=true";
 // const dbName = "sam_website_staging";
 const dbName = "sam_website";
 
