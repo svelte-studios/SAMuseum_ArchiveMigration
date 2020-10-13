@@ -56,15 +56,15 @@ const formatDate = date => {
   console.log("formatDate -> date", date);
   if (!date) return "";
   if (date.match(/\//)) {
-    return moment(date, "DD/MM/YYYY").toDate();
+    return moment.utc(date, "DD/MM/YYYY").toDate();
   }
   if (date.match(/ /)) {
     if (date.match(/[A-Z]/i)) {
-      return moment(date, "DD MMM YYYY").toDate();
+      return moment.utc(date, "DD MMM YYYY").toDate();
     }
-    return moment(date, "DD MM YYYY").toDate();
+    return moment.utc(date, "DD MM YYYY").toDate();
   }
-  return moment(date).toDate() || "";
+  return moment.utc(date).toDate() || "";
 };
 
 // const constructFormats = item => {
@@ -89,9 +89,9 @@ const getCsvFiles = source =>
     })
     .map(dirent => dirent.name);
 
-// const url =
-//   "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
-const url = "mongodb://localhost:27017";
+const url =
+  "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
+// const url = "mongodb://localhost:27017";
 // const dbName = "sam_website_staging";
 const dbName = "sam_website";
 
@@ -108,7 +108,7 @@ client.connect(function(err) {
     if (
       folder.toLowerCase().substr(0, 2) === "aa" ||
       folder.toLowerCase().substr(0, 4) === "sama"
-      // folder.toLowerCase().substr(0, 3) === "aa8"
+      // folder.toLowerCase().substr(0, 3) === "aa1"
     ) {
       directoryPromise.push(readAndExecute(folder));
     }
@@ -118,7 +118,7 @@ client.connect(function(err) {
       let promiseChain = Promise.resolve();
       forEach(results, doc => {
         if (doc.PROV_ID) {
-          doc.slug = `/collection/archives/provenances/${slugify(
+          doc.slug = `collection/archives/provenances/${slugify(
             doc.PROV_ID.replace(/\//gi, "-"),
             { lower: true }
           )}`;
@@ -173,7 +173,7 @@ client.connect(function(err) {
                 ) +
                 "</p>"
               : "",
-            slug: `/collection/archives/provenances/series/${slugify(
+            slug: `collection/archives/provenances/series/${slugify(
               s.SERIES_ID.replace(/\//gi, "-"),
               { lower: true }
             )}`,
@@ -201,7 +201,7 @@ client.connect(function(err) {
                 ) +
                 "</p>"
               : "",
-            slug: `/collection/archives/provenances/series/items/${slugify(
+            slug: `collection/archives/provenances/series/items/${slugify(
               i.CONTROL.replace(/\//gi, "-"),
               {
                 lower: true
@@ -221,8 +221,6 @@ client.connect(function(err) {
 
         if (doc.PROVENANCE && doc.PROVENANCE[0]) {
           doc.details = doc.PROVENANCE[0];
-          doc.details.PSTARTDATE = formatDate(doc.details.PSTARTDATE);
-          doc.details.PENDDATE = formatDate(doc.details.PENDDATE);
         }
 
         doc.INVENTORY = map(doc.INVENTORY, i => {
@@ -240,7 +238,11 @@ client.connect(function(err) {
             updateOne: {
               filter: { _id: i._id },
               update: {
-                $set: { ...pickBy(i, identity) }
+                $set: {
+                  ...pickBy(i, identity),
+                  fromDate: formatDate(i.STARTDATE),
+                  toDate: formatDate(i.ENDDATE)
+                }
               },
               upsert: true
             }
@@ -252,7 +254,14 @@ client.connect(function(err) {
             updateOne: {
               filter: { _id: s.SERIES_ID },
               update: {
-                $set: { ...pickBy(s, identity) }
+                $set: {
+                  ...pickBy(s, identity),
+                  QUANTITYN: s.SQUANTITYN,
+                  QUANTITYL: s.SQUANTITYL,
+                  QUANTITYT: s.SQUANTITYT,
+                  fromDate: formatDate(s.SSTARTDATE),
+                  toDate: formatDate(s.SENDDATE)
+                }
               },
               upsert: true
             }
@@ -271,7 +280,9 @@ client.connect(function(err) {
                   $set: {
                     ...pickBy(doc, identity),
                     _id: doc.PROV_ID,
-                    showLive: true
+                    showLive: true,
+                    fromDate: formatDate(doc.details.PSTARTDATE),
+                    toDate: formatDate(doc.details.PENDDATE)
                   }
                 },
                 {

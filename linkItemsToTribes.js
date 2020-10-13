@@ -29,7 +29,6 @@ client.connect(function(err) {
       });
 
       const uniqItemIds = uniq(itemsIdsWithTribes);
-      console.log("uniqItemIds", uniqItemIds);
 
       return db
         .collection("Archive_inventory")
@@ -38,7 +37,6 @@ client.connect(function(err) {
         .then(items => {
           let promiseChain = Promise.resolve();
           forEach(items, item => {
-            console.log("item", item);
             promiseChain = promiseChain.then(() => {
               return db
                 .collection("Archive_tribe")
@@ -59,41 +57,3 @@ client.connect(function(err) {
         });
     });
 });
-
-// client.connect(function(err) {
-//   assert.equal(null, err);
-//   console.log("Connected successfully to server");
-
-//   const db = client.db(dbName);
-//   return db
-//     .collection("Archive_inventory")
-//     .find()
-//     .toArray()
-//     .then(items => {
-//       let promiseChain = Promise.resolve();
-//       let current = 0;
-//       forEach(items, i => {
-//         promiseChain = promiseChain.then(() => {
-//           console.log("current", current);
-//           return db
-//             .collection("Archive_tribe")
-//             .find({ "inventory.Item_id": i.ITEM_ID })
-//             .toArray()
-//             .then(tribes => {
-//               tribeIds = map(tribes, t => t._id);
-//               return db
-//                 .collection("Archive_inventory")
-//                 .updateOne({ _id: i._id }, { $set: { tribeIds } })
-//                 .then(() => {
-//                   current++;
-//                 });
-//             });
-//         });
-//       });
-
-//       return promiseChain.then(() => {
-//         console.log("All Done : )");
-//         client.close();
-//       });
-//     });
-// });

@@ -12,9 +12,9 @@ const AWS = require("aws-sdk");
 const autocomplete = require("./autocomplete.js");
 const htmlToText = require("html-to-text");
 
-// const url =
-//   "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
-const url = "mongodb://localhost:27017";
+const url =
+  "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
+// const url = "mongodb://localhost:27017";
 
 const dbName = "sam_website";
 const mongoClient = new MongoClient(url);
@@ -30,8 +30,8 @@ const config = {
   requestTimeout: 60000
 };
 
-const elasticClient = new Client({ node: "http://localhost:9200" });
-// const elasticClient = new elasticsearch.Client(config);
+// const elasticClient = new Client({ node: "http://localhost:9200" });
+const elasticClient = new elasticsearch.Client(config);
 
 function formatDate(date) {
   console.log("formatDate -> date", date);
@@ -97,13 +97,6 @@ mongoClient.connect(function(err) {
           ).join(",")
         : "";
 
-      if (item._id === "aa713-11") {
-        console.log("FOUND IT");
-        console.log("item", item);
-        console.log("relatedSeries", relatedSeries);
-        console.log("relatedProv", relatedProv);
-      }
-
       if (
         relatedProv &&
         relatedProv._id &&
@@ -118,6 +111,7 @@ mongoClient.connect(function(err) {
         const fields = {
           name: htmlToText.fromString(item.TITLEINS),
           description: item.TITLEDET,
+          indexField: item.TITLEDET,
           tribes: tribesNames,
           collectionId: relatedProv._id,
           collectionName: htmlToText.fromString(relatedProv.PROV_NAME),
@@ -133,19 +127,9 @@ mongoClient.connect(function(err) {
           formats: item.formats ? item.formats.join(", ") : "",
           slugifiedId: item.slugifiedId,
           type: "item",
-          from: relatedProv.PSTARTDATE,
-          to: relatedProv.PENDDATE
+          from: item.fromDate,
+          to: item.toDate
         };
-
-        if (item._id === "aa713-11") {
-          console.log("fields", fields);
-        }
-
-        // if (formatDate(relatedProv.PSTARTDATE))
-        //   fields.from = formatDate(relatedProv.PSTARTDATE);
-        // if (formatDate(relatedProv.PENDDATE))
-        //   fields.to = formatDate(relatedProv.PENDDATE);
-
         dataset.push(fields);
       }
     });
@@ -172,6 +156,9 @@ mongoClient.connect(function(err) {
                   type: "text",
                   analyzer: "autocomplete",
                   search_analyzer: "autocomplete_search"
+                },
+                indexField: {
+                  type: "text"
                 },
                 tribes: {
                   type: "text",
@@ -234,7 +221,7 @@ mongoClient.connect(function(err) {
           }
         })
         .then(() => {
-          const chunkedOps = chunk(dataset, 5000);
+          const chunkedOps = chunk(dataset, 3000);
           console.log("chunkedOps.length", chunkedOps.length);
           let promiseChain = Promise.resolve();
 

@@ -1,11 +1,10 @@
-const { forEach, map, toLower, merge } = require("lodash");
+const { forEach, toLower, merge } = require("lodash");
 const MongoClient = require("mongodb").MongoClient;
 const assert = require("assert");
 const MIGRATION_DIR = process.cwd() + "/";
 const { readdirSync } = require("fs");
 const csv = require("csvtojson");
 const slugify = require("slugify");
-const { Client } = require("@elastic/elasticsearch");
 const uniqid = require("uniqid");
 
 const $id = () => {
@@ -19,15 +18,14 @@ const getCsvFiles = source =>
     })
     .map(dirent => dirent.name);
 
-// Connection URL
 // const url =
-//   "mongodb+srv://jake:nSTpXARKE48oeRCU@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
+//   "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
 const url = "mongodb://localhost:27017";
-// Database Name
-const dbName = "sam_website";
-const client = new MongoClient(url);
 
-const elasticClient = new Client({ node: "http://localhost:9200" });
+// const dbName = "sam_website_staging";
+const dbName = "sam_website";
+
+const client = new MongoClient(url);
 
 client.connect(function(err) {
   assert.equal(null, err);
@@ -36,7 +34,6 @@ client.connect(function(err) {
   const db = client.db(dbName);
   readAndExecute("HDMS/Data")
     .then(results => {
-      console.log(results);
       forEach(results, doc => {
         db.collection("Archive_tribe").insertOne(
           {
