@@ -30,8 +30,8 @@ const config = {
   requestTimeout: 60000
 };
 
-// const elasticClient = new Client({ node: "http://localhost:9200" });
-const elasticClient = new elasticsearch.Client(config);
+const elasticClient = new Client({ node: "http://localhost:9200" });
+// const elasticClient = new elasticsearch.Client(config);
 
 function formatDate(date) {
   console.log("formatDate -> date", date);
@@ -111,7 +111,7 @@ mongoClient.connect(function(err) {
         const fields = {
           name: htmlToText.fromString(item.TITLEINS),
           description: item.TITLEDET,
-          indexField: item.TITLEDET,
+          indexField: item.TITLEDET + item.TITLEINS,
           tribes: tribesNames,
           collectionId: relatedProv._id,
           collectionName: htmlToText.fromString(relatedProv.PROV_NAME),

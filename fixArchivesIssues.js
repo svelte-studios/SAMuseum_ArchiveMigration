@@ -17,6 +17,8 @@ client.connect(function(err) {
   const db = client.db(dbName);
 
   //Series linked to AA 266 had a type in their PROV_ID
+
+  //Series linked to AA 60 had a type in their PROV_ID
   return Promise.all([
     db
       .collection("Archive_series")
