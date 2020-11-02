@@ -1,6 +1,6 @@
 const MongoClient = require("mongodb").MongoClient;
 const assert = require("assert");
-
+// const { forEach } = require("lodash");
 // const url =
 //   "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
 const url = "mongodb://localhost:27017";
@@ -17,14 +17,30 @@ client.connect(function(err) {
   const db = client.db(dbName);
 
   //Series linked to AA 266 had a type in their PROV_ID
+  const promises = [];
 
-  //Series linked to AA 60 had a type in their PROV_ID
-  return Promise.all([
+  promises.push(
     db
       .collection("Archive_series")
-      .updateMany({ PROV_ID: "AA266" }, { $set: { PROV_ID: "AA 266" } }),
+      .updateMany({ PROV_ID: "AA266" }, { $set: { PROV_ID: "AA 266" } })
+  );
+
+  //Series linked to AA 60 had a type in their PROV_ID
+  promises.push(
     db
       .collection("Archive_series")
       .updateMany({ PROV_ID: "AA60" }, { $set: { PROV_ID: "AA 60" } })
-  ]);
+  );
+
+  //Items linked to AA 100/01 had a type in their SERIES_ID
+  promises.push(
+    db
+      .collection("Archive_inventory")
+      .updateMany(
+        { SERIES_ID: "AA100/01" },
+        { $set: { SERIES_ID: "AA 100/01" } }
+      )
+  );
+
+  return Promise.all(promises);
 });

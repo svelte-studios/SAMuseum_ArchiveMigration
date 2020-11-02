@@ -135,7 +135,7 @@ client.connect(function(err) {
         }
 
         if (
-          doc.TYPE === "Person" &&
+          (doc.TYPE === "Person" || doc.TYPE === "Person") &&
           doc.PROV_NAME &&
           !doc.PROV_NAME.match(/,/g)
         ) {

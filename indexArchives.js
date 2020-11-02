@@ -5,7 +5,7 @@ const { Client } = require("@elastic/elasticsearch");
 const connectionClass = require("http-aws-es");
 const elasticsearch = require("elasticsearch");
 // const AwsElastic = require("aws-elasticsearch-client");
-const { forEach, find, chunk, filter, map } = require("lodash");
+const { forEach, find, chunk, filter, map, lowerCase } = require("lodash");
 const moment = require("moment");
 const AWS = require("aws-sdk");
 
@@ -16,7 +16,7 @@ const htmlToText = require("html-to-text");
 //   "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
 const url = "mongodb://localhost:27017";
 
-const dbName = "sam_website";
+const dbName = "sam_website_staging";
 const mongoClient = new MongoClient(url);
 
 const config = {
@@ -32,21 +32,6 @@ const config = {
 
 const elasticClient = new Client({ node: "http://localhost:9200" });
 // const elasticClient = new elasticsearch.Client(config);
-
-function formatDate(date) {
-  console.log("formatDate -> date", date);
-  if (!date) return "";
-  if (date.match(/\//)) {
-    return moment(date, "DD/MM/YYYY").toDate();
-  }
-  if (date.match(/ /)) {
-    if (date.match(/[A-Z]/i)) {
-      return moment(date, "DD MMM YYYY").toDate();
-    }
-    return moment(date, "DD MM YYYY").toDate();
-  }
-  return moment(date).toDate() || "";
-}
 
 mongoClient.connect(function(err) {
   assert.equal(null, err);
@@ -65,7 +50,7 @@ mongoClient.connect(function(err) {
     db
       .collection("Archive_inventory")
       .find({ _id: { $exists: true, $ne: "" } })
-      // .find({ _id: "aa-778-13" })
+      // .find({ _id: "aa-1-63-40" })
       // .limit(1)
       .toArray(),
     db
@@ -111,11 +96,14 @@ mongoClient.connect(function(err) {
         const fields = {
           name: htmlToText.fromString(item.TITLEINS),
           description: item.TITLEDET,
-          indexField: item.TITLEDET + item.TITLEINS,
+          indexField: lowerCase(item.TITLEDET + item.TITLEINS),
           tribes: tribesNames,
           collectionId: relatedProv._id,
           collectionName: htmlToText.fromString(relatedProv.PROV_NAME),
           collectionCode: item.PROV_ID,
+          collectionIndexField: lowerCase(
+            `${item.PROV_ID} ` + htmlToText.fromString(relatedProv.PROV_NAME)
+          ),
           slugifiedCollectionId: item.slugifiedProvId,
           showLive: relatedProv.showLive,
           seriesId: relatedSeries._id,
@@ -126,10 +114,12 @@ mongoClient.connect(function(err) {
           itemCode: item.CONTROL,
           formats: item.formats ? item.formats.join(", ") : "",
           slugifiedId: item.slugifiedId,
-          type: "item",
-          from: item.fromDate,
-          to: item.toDate
+          type: "item"
         };
+
+        if (item.fromDate) fields.from = item.fromDate;
+        if (item.toDate) fields.from = item.toDate;
+
         dataset.push(fields);
       }
     });
@@ -158,7 +148,7 @@ mongoClient.connect(function(err) {
                   search_analyzer: "autocomplete_search"
                 },
                 indexField: {
-                  type: "text"
+                  type: "keyword"
                 },
                 tribes: {
                   type: "text",
@@ -177,6 +167,9 @@ mongoClient.connect(function(err) {
                   type: "text",
                   analyzer: "autocomplete",
                   search_analyzer: "autocomplete_search"
+                },
+                collectionIndexField: {
+                  type: "keyword"
                 },
                 slugifiedCollectionId: {
                   type: "text"
