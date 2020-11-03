@@ -53,17 +53,18 @@ const constructFormats = item => {
 };
 
 const formatDate = date => {
-  console.log("formatDate -> date", date);
   if (!date) return "";
+  console.log("date", date);
+  console.log(" moment.utc(date).toDate()", moment.utc(date).toDate());
   if (date.match(/\//)) {
     return moment.utc(date, "DD/MM/YYYY").toDate();
   }
-  if (date.match(/ /)) {
-    if (date.match(/[A-Z]/i)) {
-      return moment.utc(date, "DD MMM YYYY").toDate();
-    }
-    return moment.utc(date, "DD MM YYYY").toDate();
-  }
+  // if (date.match(/ /)) {
+  //   if (date.match(/[A-Z]/i)) {
+  //     return moment.utc(date, "DD MMM YYYY").toDate();
+  //   }
+  //   return moment.utc(date, "DD MM YYYY").toDate();
+  // }
   return moment.utc(date).toDate() || "";
 };
 
@@ -89,11 +90,11 @@ const getCsvFiles = source =>
     })
     .map(dirent => dirent.name);
 
-const url =
-  "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
-// const url = "mongodb://localhost:27017";
-const dbName = "sam_website_staging";
-// const dbName = "sam_website";
+// const url =
+//   "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
+const url = "mongodb://localhost:27017";
+// const dbName = "sam_website_staging";
+const dbName = "sam_website";
 
 const client = new MongoClient(url);
 
@@ -108,7 +109,7 @@ client.connect(function(err) {
     if (
       folder.toLowerCase().substr(0, 2) === "aa" ||
       folder.toLowerCase().substr(0, 4) === "sama"
-      // folder.toLowerCase().substr(0, 3) === "aa1"
+      // folder.toLowerCase().substr(0, 5) === "aa145"
     ) {
       directoryPromise.push(readAndExecute(folder));
     }
@@ -316,6 +317,7 @@ client.connect(function(err) {
       });
 
       return promiseChain.then(() => {
+        console.log("Done :)");
         // client.close();
       });
     })
