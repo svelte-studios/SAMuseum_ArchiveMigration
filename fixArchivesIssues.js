@@ -1,9 +1,9 @@
 const MongoClient = require("mongodb").MongoClient;
 const assert = require("assert");
 // const { forEach } = require("lodash");
-// const url =
-//   "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
-const url = "mongodb://localhost:27017";
+const url =
+  "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
+// const url = "mongodb://localhost:27017";
 // const dbName = "sam_website_staging";
 const dbName = "sam_website";
 
@@ -30,6 +30,12 @@ client.connect(function(err) {
     db
       .collection("Archive_series")
       .updateMany({ PROV_ID: "AA60" }, { $set: { PROV_ID: "AA 60" } })
+  );
+
+  promises.push(
+    db
+      .collection("Archive_inventory")
+      .updateMany({ PROV_ID: "SAM01" }, { $set: { PROV_ID: "AA 298" } })
   );
 
   //Items linked to AA 100/01 had a type in their SERIES_ID

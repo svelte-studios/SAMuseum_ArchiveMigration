@@ -12,11 +12,12 @@ const AWS = require("aws-sdk");
 const autocomplete = require("./autocomplete.js");
 const htmlToText = require("html-to-text");
 
-// const url =
-//   "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
-const url = "mongodb://localhost:27017";
+const url =
+  "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
+// const url = "mongodb://localhost:27017";
 
-const dbName = "sam_website_staging";
+// const dbName = "sam_website_staging";
+const dbName = "sam_website";
 const mongoClient = new MongoClient(url);
 
 const config = {
@@ -30,8 +31,8 @@ const config = {
   requestTimeout: 60000
 };
 
-const elasticClient = new Client({ node: "http://localhost:9200" });
-// const elasticClient = new elasticsearch.Client(config);
+// const elasticClient = new Client({ node: "http://localhost:9200" });
+const elasticClient = new elasticsearch.Client(config);
 
 mongoClient.connect(function(err) {
   assert.equal(null, err);
@@ -118,7 +119,7 @@ mongoClient.connect(function(err) {
         };
 
         if (item.fromDate) fields.from = item.fromDate;
-        if (item.toDate) fields.from = item.toDate;
+        if (item.toDate) fields.to = item.toDate;
 
         dataset.push(fields);
       }

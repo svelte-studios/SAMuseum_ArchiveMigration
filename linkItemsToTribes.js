@@ -5,8 +5,8 @@ const assert = require("assert");
 const url =
   "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
 // const url = "mongodb://localhost:27017";
-const dbName = "sam_website_staging";
-// const dbName = "sam_website";
+// const dbName = "sam_website_staging";
+const dbName = "sam_website";
 
 const client = new MongoClient(url);
 
@@ -38,6 +38,7 @@ client.connect(function(err) {
           let promiseChain = Promise.resolve();
           forEach(items, item => {
             promiseChain = promiseChain.then(() => {
+              console.log("WORKING FOR ITEM: ", item._id);
               return db
                 .collection("Archive_tribe")
                 .find({ "inventory.Item_id": item.ITEM_ID })

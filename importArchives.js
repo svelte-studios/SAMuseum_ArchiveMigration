@@ -1,4 +1,4 @@
-const { forEach, map, pickBy, identity, filter } = require("lodash");
+const { forEach, map, pickBy, identity, filter, get } = require("lodash");
 const MongoClient = require("mongodb").MongoClient;
 const assert = require("assert");
 const MIGRATION_DIR = process.cwd() + "/HDMS/"; //process.cwd() + "/mongo/archiveMigration/"
@@ -44,18 +44,21 @@ const MAIN_FILES = [
   "REFERENCES"
 ];
 
+const HEADERS = require("./archivesImportHeaders");
+
 const constructFormats = item => {
   let formats = [];
   forEach(formatsMap, (format, key) => {
-    if (item[key] === "1") formats.push(format);
+    if (item[key] === "true") formats.push(format);
   });
   return formats;
 };
 
 const formatDate = date => {
   if (!date) return "";
+  // if (!moment.utc(date)) return "";
   console.log("date", date);
-  console.log(" moment.utc(date).toDate()", moment.utc(date).toDate());
+  // console.log(" moment.utc(date).toDate()", moment.utc(date).toDate());
   if (date.match(/\//)) {
     return moment.utc(date, "DD/MM/YYYY").toDate();
   }
@@ -90,9 +93,9 @@ const getCsvFiles = source =>
     })
     .map(dirent => dirent.name);
 
-// const url =
-//   "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
-const url = "mongodb://localhost:27017";
+const url =
+  "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
+// const url = "mongodb://localhost:27017";
 // const dbName = "sam_website_staging";
 const dbName = "sam_website";
 
@@ -109,7 +112,7 @@ client.connect(function(err) {
     if (
       folder.toLowerCase().substr(0, 2) === "aa" ||
       folder.toLowerCase().substr(0, 4) === "sama"
-      // folder.toLowerCase().substr(0, 5) === "aa145"
+      // folder.toLowerCase().substr(0, 7) === "sama916"
     ) {
       directoryPromise.push(readAndExecute(folder));
     }
@@ -118,6 +121,7 @@ client.connect(function(err) {
     .then(results => {
       let promiseChain = Promise.resolve();
       forEach(results, doc => {
+        console.log("doc.PROV_ID", doc.PROV_ID);
         if (doc.PROV_ID) {
           doc.slug = `collection/archives/provenances/${slugify(
             doc.PROV_ID.replace(/\//gi, "-"),
@@ -269,7 +273,14 @@ client.connect(function(err) {
           };
         });
 
-        if (inventoryOps && inventoryOps.length)
+        if (
+          doc.PROV_ID &&
+          doc.PROV_NAME &&
+          doc.PROV_ID !== "PROV_ID" &&
+          !doc.PROV_ID.match(/(ACST)/gi) &&
+          !doc.PROV_ID.match(/(ACDT)/gi)
+        ) {
+          console.log("doc.PROV_ID", doc.PROV_ID);
           promiseChain = promiseChain.then(() =>
             db
               .collection("Archive_provenance")
@@ -281,9 +292,15 @@ client.connect(function(err) {
                   $set: {
                     ...pickBy(doc, identity),
                     _id: doc.PROV_ID,
-                    showLive: true,
-                    fromDate: formatDate(doc.details.PSTARTDATE),
-                    toDate: formatDate(doc.details.PENDDATE)
+                    showLive:
+                      !inventoryOps || !inventoryOps.length ? false : true,
+                    fromDate: formatDate(
+                      (doc.details && doc.details.PSTARTDATE) || ""
+                    ),
+                    toDate: formatDate(
+                      (doc.details && doc.details.PENDDATE) || ""
+                    ),
+                    preparedBy: get(doc, "legacy.FINDINGAID[0].PrepBy", "")
                   }
                 },
                 {
@@ -294,15 +311,15 @@ client.connect(function(err) {
                 }
               )
               .then(() => {
-                if (!inventoryOps.length) return Promise.resolve();
+                if (!seriesOps.length) return Promise.resolve();
                 return db
-                  .collection("Archive_inventory")
-                  .bulkWrite(inventoryOps, { ordered: false })
+                  .collection("Archive_series")
+                  .bulkWrite(seriesOps, { ordered: false })
                   .then(() => {
-                    if (!seriesOps.length) return Promise.resolve();
+                    if (!inventoryOps.length) return Promise.resolve();
                     return db
-                      .collection("Archive_series")
-                      .bulkWrite(seriesOps, { ordered: false })
+                      .collection("Archive_inventory")
+                      .bulkWrite(inventoryOps, { ordered: false })
                       .catch(err => {
                         console.log("err", err);
                         throw new Error(err);
@@ -314,6 +331,7 @@ client.connect(function(err) {
                   });
               })
           );
+        }
       });
 
       return promiseChain.then(() => {
@@ -326,8 +344,12 @@ client.connect(function(err) {
     });
 });
 
-function readCsv(filePath) {
-  return csv()
+function readCsv(filePath, fileName) {
+  return csv({
+    // noheader: true,
+    // headers: HEADERS[fileName],
+    // eol: "\n"
+  })
     .fromFile(filePath)
     .then(function(jsonArrayObj) {
       return jsonArrayObj;
@@ -344,20 +366,23 @@ function readAndExecute(folder) {
   var promises = [];
   var fileArray = getCsvFiles(MIGRATION_DIR + folder);
   forEach(fileArray, fileName => {
-    promises.push(readCsv(MIGRATION_DIR + folder + "/" + fileName));
+    promises.push(readCsv(MIGRATION_DIR + folder + "/" + fileName, fileName));
   });
   return Promise.all(promises).then(results => {
     forEach(fileArray, (fileName, $index) => {
-      fileName = fileName.toUpperCase().substr(0, fileName.length - 4);
-      if (!MAIN_FILES.includes(fileName)) {
-        masterJson["legacy"][fileName] = results[$index];
+      let formattedFileName = fileName.replace(/ /gi, "-");
+      formattedFileName = formattedFileName
+        .toUpperCase()
+        .substr(0, formattedFileName.length - 4);
+      if (!MAIN_FILES.includes(formattedFileName)) {
+        masterJson["legacy"][formattedFileName] = results[$index];
       } else {
-        if (fileName === "PROVENANCE" && results[$index][0] != null) {
+        if (formattedFileName === "PROVENANCE" && results[$index][0] != null) {
           masterJson["PROV_ID"] = results[$index][0]["PROV_ID"];
           masterJson["PROV_NAME"] = results[$index][0]["N"];
           masterJson["TYPE"] = results[$index][0]["PTYPE"];
         }
-        masterJson[fileName] = results[$index];
+        masterJson[formattedFileName] = results[$index];
       }
     });
     return masterJson;
