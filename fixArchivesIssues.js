@@ -48,5 +48,22 @@ client.connect(function(err) {
       )
   );
 
+  //Some series linked to AA662 had a typo in their PROV_ID
+  promises.push(
+    db
+      .collection("Archive_series")
+      .updateMany(
+        { $or: [{ PROV_ID: "AA 662" }, { PROV_ID: "AA  662" }] },
+        { $set: { PROV_ID: "AA662" } }
+      )
+  );
+
+  //Some series linked to AA22 had a typo in their PROV_ID
+  promises.push(
+    db
+      .collection("Archive_series")
+      .updateMany({ PROV_ID: "AA 22" }, { $set: { PROV_ID: "AA22" } })
+  );
+
   return Promise.all(promises);
 });
