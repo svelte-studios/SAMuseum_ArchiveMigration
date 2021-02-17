@@ -1,6 +1,6 @@
 const MongoClient = require("mongodb").MongoClient;
 const assert = require("assert");
-const { forEach, find } = require("lodash");
+const { forEach, find, map } = require("lodash");
 
 require("dotenv").config();
 
@@ -21,15 +21,10 @@ client.connect(function (err) {
     db.collection("competitions").findOne({ _id: "NPOTY" }),
     db
       .collection("competitionEntries")
-      // .find({ competitionId: "NPOTY", iterationId: { $ne: "2021" } })
-      .find({ competitionId: "NPOTY", iterationId: "2020" })
+      .find({ competitionId: "NPOTY", iterationId: { $ne: "2021" } })
+      // .find({ competitionId: "NPOTY", iterationId: "2020" })
       .toArray(),
   ]).then(([npotyComp, npotyEntries]) => {
-    console.log(
-      "🚀 ~ file: updateEntriesData2021.js ~ line 23 ~ .then ~ npotyEntries",
-      npotyEntries
-    );
-
     const iteration2021 = find(npotyComp.iterations, (i) => i._id === "2021");
 
     const formFields2021 = iteration2021.formFields;
@@ -47,7 +42,7 @@ client.connect(function (err) {
 
       if (entry.portfolioPrize) awardCategories.push("Portfolio Prize");
 
-      if (entry.overallWinner) awardCategories.push("Overall winner");
+      if (entry.overallWinner) awardCategories.push("Overall Winner");
 
       if (entry.conservationStatus) iucnStatus = entry.conservationStatus;
 
@@ -64,12 +59,32 @@ client.connect(function (err) {
       });
     });
 
+    const iterationIds = [
+      "2019",
+      "2018",
+      "2017",
+      "2016",
+      "2015",
+      "2014",
+      "2013",
+      "2012",
+      "2011",
+      "2010",
+      "2009",
+    ];
+
+    const updateFormFieldsOps = map(iterationIds, (id) => {
+      return {
+        updateOne: {
+          filter: { _id: "NPOTY", "iterations.id": id },
+          update: { $set: { "iterations.$.formFields": formFields2021 } },
+        },
+      };
+    });
+
     return db
       .collection("competitions")
-      .updateOne(
-        { _id: "NPOTY", "iterations.id": "2020" },
-        { $set: { "iterations.$.formFields": formFields2021 } }
-      )
+      .bulkWrite(updateFormFieldsOps)
       .then(() => {
         return db
           .collection("competitionEntries")
@@ -78,12 +93,5 @@ client.connect(function (err) {
             client.close();
           });
       });
-
-    // return db.collection("competitionEntries").updateMany(
-    //   {
-    //     $or: [{ award: { $exists: true, $ne: "" } }, { portfolioPrize: true }]
-    //   },
-    //   { $set: { awardWinner: true } }
-    // );
   });
 });
