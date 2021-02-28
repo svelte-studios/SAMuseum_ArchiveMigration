@@ -1,16 +1,15 @@
 const MongoClient = require("mongodb").MongoClient;
 const assert = require("assert");
-// const { forEach } = require("lodash");
-const url =
-  "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
-// const url = "mongodb://localhost:27017";
+// const url =
+//   "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
+const url = "mongodb://localhost:27017";
 // const dbName = "sam_website_staging";
 const dbName = "sam_website";
 
 const client = new MongoClient(url);
 
 // Use connect method to connect to the Server
-client.connect(function(err) {
+client.connect(function (err) {
   assert.equal(null, err);
   console.log("Connected successfully to server");
 
