@@ -64,5 +64,15 @@ client.connect(function (err) {
       .updateMany({ PROV_ID: "AA 22" }, { $set: { PROV_ID: "AA22" } })
   );
 
+  //Some items linked to SAMA 1160/1 had a typo in their SERIES_ID
+  promises.push(
+    db
+      .collection("Archive_inventory")
+      .updateMany(
+        { SERIES_ID: "SAMA1160/1" },
+        { $set: { SERIES_ID: "SAMA 1160/1" } }
+      )
+  );
+
   return Promise.all(promises);
 });
