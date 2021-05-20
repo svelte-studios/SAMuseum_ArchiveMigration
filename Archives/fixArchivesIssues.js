@@ -1,8 +1,8 @@
 const MongoClient = require("mongodb").MongoClient;
 const assert = require("assert");
-// const url =
-//   "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
-const url = "mongodb://localhost:27017";
+const url =
+  "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
+// const url = "mongodb://localhost:27017";
 // const dbName = "sam_website_staging";
 const dbName = "sam_website";
 
@@ -72,6 +72,13 @@ client.connect(function (err) {
         { SERIES_ID: "SAMA1160/1" },
         { $set: { SERIES_ID: "SAMA 1160/1" } }
       )
+  );
+
+  //Items linked to Prov AA 281 had a typo in their PROV_ID
+  promises.push(
+    db
+      .collection("Archive_series")
+      .updateMany({ PROV_ID: "AA281" }, { $set: { PROV_ID: "AA 281" } })
   );
 
   return Promise.all(promises);
