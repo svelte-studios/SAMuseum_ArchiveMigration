@@ -60,24 +60,24 @@ function saveFinalistAndUploadImage(db, finalist) {
   };
 
   readFile(pathToFile, (err, image) => {
-    // uploadImage(image, `images/${imagePath}`).then(() => {
-    return db
-      .collection("competitionEntries")
-      .updateOne(
-        { _id: finalist._id },
-        {
-          $set: finalistData,
-        },
-        { upsert: true }
-      )
-      .then(() => console.log(`Saved ${finalist._id} (${finalist.title})`));
-    // });
+    uploadImage(image, `images/${imagePath}`).then(() => {
+      return db
+        .collection("competitionEntries")
+        .updateOne(
+          { _id: finalist._id },
+          {
+            $set: finalistData,
+          },
+          { upsert: true }
+        )
+        .then(() => console.log(`Saved ${finalist._id} (${finalist.title})`));
+    });
   });
 }
 
-// const url =
-//   "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
-const url = "mongodb://localhost:27017?retryWrites=true&rs=true";
+const url =
+  "mongodb+srv://jake:1234@svelteshared.nes56.mongodb.net/test?retryWrites=true&w=majority";
+// const url = "mongodb://localhost:27017?retryWrites=true&rs=true";
 // const dbName = "sam_website_staging";
 const dbName = "sam_website";
 
@@ -96,9 +96,6 @@ client.connect(function (err) {
   forEach(jsonObj, (finalists, category) => {
     const testFinalist = finalists[0];
     testFinalist.category = category;
-    // promiseChain = promiseChain.then(() => {
-    //   saveFinalistAndUploadImage(db, testFinalist);
-    // });
     forEach(finalists, (finalist) => {
       finalist.category = category;
       promiseChain = promiseChain.then(() => {

@@ -24,17 +24,17 @@ const config = {
   awsConfig: new AWS.Config({
     accessKeyId: process.env.ELASTICSEARCH_USERID,
     secretAccessKey: process.env.ELASTICSEARCH_USERSECRET,
-    region: "ap-southeast-2"
+    region: "ap-southeast-2",
   }),
   connectionClass,
   hosts: [process.env.ELASTICSEARCH_HOST],
-  requestTimeout: 60000
+  requestTimeout: 60000,
 };
 
 // const elasticClient = new Client({ node: "http://localhost:9200" });
 const elasticClient = new elasticsearch.Client(config);
 
-mongoClient.connect(function(err) {
+mongoClient.connect(function (err) {
   assert.equal(null, err);
   console.log("Connected successfully to server");
 
@@ -58,28 +58,49 @@ mongoClient.connect(function(err) {
       .collection("Archive_tribe")
       .find({
         _id: { $exists: true, $ne: "" },
-        "inventory.0": { $exists: true }
+        "inventory.0": { $exists: true },
       })
       // .find({ _id: "aa-778-13" })
       // .limit(1)
-      .toArray()
+      .toArray(),
   ]).then(([provenances, series, items, tribes]) => {
     const dataset = [];
-    forEach(items, item => {
+    // items = items.slice(0, 20000);
+    // const foundItem = items.find((item) => item.CONTROL === "AA122/5/1/11");
+    // console.log(
+    //   "🚀 ~ file: indexArchives.js ~ line 72 ~ forEach ~ foundItem",
+    //   foundItem
+    // );
+
+    // const relatedSeries = find(series, (s) => s._id === foundItem.SERIES_ID);
+    // console.log(
+    //   "🚀 ~ file: indexArchives.js ~ line 79 ~ ]).then ~ relatedSeries",
+    //   relatedSeries
+    // );
+
+    // let relatedProv = {};
+    // if (relatedSeries && relatedSeries._id)
+    //   relatedProv = find(provenances, (p) => p._id === relatedSeries.PROV_ID);
+    // console.log(
+    //   "🚀 ~ file: indexArchives.js ~ line 79 ~ ]).then ~ relatedProv",
+    //   relatedProv
+    // );
+
+    // return;
+
+    let successCount = 0;
+    forEach(items, (item) => {
       let relatedSeries = {};
       let relatedProv = {};
 
-      relatedSeries = find(series, s => s.SERIES_ID === item.SERIES_ID);
+      relatedSeries = find(series, (s) => s._id === item.SERIES_ID);
 
       if (relatedSeries && relatedSeries._id)
-        relatedProv = find(
-          provenances,
-          p => p.PROV_ID === relatedSeries.PROV_ID
-        );
+        relatedProv = find(provenances, (p) => p._id === relatedSeries.PROV_ID);
       let tribesNames = item.tribeIds
         ? map(
-            filter(tribes, t => item.tribeIds.includes(t._id)),
-            tribe => tribe.TTRIBE
+            filter(tribes, (t) => item.tribeIds.includes(t._id)),
+            (tribe) => tribe.TTRIBE
           ).join(",")
         : "";
 
@@ -89,37 +110,41 @@ mongoClient.connect(function(err) {
         relatedSeries &&
         relatedSeries._id
       ) {
+        successCount++;
+        console.log(
+          "🚀 ~ file: indexArchives.js ~ line 156 ~ forEach ~ successCount",
+          successCount
+        );
         relatedProv = { ...relatedProv, ...relatedProv.details };
 
         dataset.push({
-          index: { _index: "archives", _id: item._id }
+          index: { _index: "archives", _id: item._id },
         });
         const fields = {
           name: htmlToText.fromString(item.TITLEINS),
+          slugifiedId: item.slugifiedId,
           description: item.TITLEDET,
           indexField: lowerCase(item.TITLEDET + item.TITLEINS),
+          itemId: item._id,
+          formats: item.formats ? item.formats.join(", ") : "",
           tribes: tribesNames,
           collectionId: relatedProv._id,
-          collectionName: htmlToText.fromString(relatedProv.PROV_NAME),
           collectionCode: item.PROV_ID,
+          collectionName: htmlToText.fromString(relatedProv.PROV_NAME),
           collectionIndexField: lowerCase(
             `${item.PROV_ID} ` + htmlToText.fromString(relatedProv.PROV_NAME)
           ),
           slugifiedCollectionId: item.slugifiedProvId,
           showLive: relatedProv.showLive,
           seriesId: relatedSeries._id,
-          seriesName: htmlToText.fromString(relatedSeries.STITLEINS),
-          seriesCode: item.SERIES_ID,
-          slugifiedSeriesId: item.slugifiedSeriesId,
-          itemId: item._id,
+          seriesCode: relatedSeries.SERIES_ID,
           itemCode: item.CONTROL,
-          formats: item.formats ? item.formats.join(", ") : "",
-          slugifiedId: item.slugifiedId,
-          type: "item"
+          seriesName: htmlToText.fromString(relatedSeries.STITLEINS),
+          slugifiedSeriesId: item.slugifiedSeriesId,
+          type: "item",
+          from: item.fromDate || null,
+          to: item.toDate || null,
         };
-
-        if (item.fromDate) fields.from = item.fromDate;
-        if (item.toDate) fields.to = item.toDate;
 
         dataset.push(fields);
       }
@@ -139,80 +164,80 @@ mongoClient.connect(function(err) {
                   search_analyzer: "autocomplete_search",
                   fields: {
                     raw: {
-                      type: "keyword"
-                    }
-                  }
+                      type: "keyword",
+                    },
+                  },
                 },
                 description: {
                   type: "text",
                   analyzer: "autocomplete",
-                  search_analyzer: "autocomplete_search"
+                  search_analyzer: "autocomplete_search",
                 },
                 indexField: {
-                  type: "keyword"
+                  type: "keyword",
                 },
                 tribes: {
                   type: "text",
                   analyzer: "autocomplete",
-                  search_analyzer: "autocomplete_search"
+                  search_analyzer: "autocomplete_search",
                 },
                 collectionId: {
-                  type: "keyword"
+                  type: "keyword",
                 },
                 collectionCode: {
                   type: "text",
                   analyzer: "autocomplete",
-                  search_analyzer: "autocomplete_search"
+                  search_analyzer: "autocomplete_search",
                 },
                 collectionName: {
                   type: "text",
                   analyzer: "autocomplete",
-                  search_analyzer: "autocomplete_search"
+                  search_analyzer: "autocomplete_search",
                 },
                 collectionIndexField: {
-                  type: "keyword"
+                  type: "keyword",
                 },
                 slugifiedCollectionId: {
-                  type: "text"
+                  type: "text",
                 },
                 showLive: {
-                  type: "keyword"
+                  type: "keyword",
                 },
                 seriesId: {
-                  type: "keyword"
+                  type: "keyword",
                 },
                 seriesCode: {
                   type: "text",
                   analyzer: "autocomplete",
-                  search_analyzer: "autocomplete_search"
+                  search_analyzer: "autocomplete_search",
                 },
                 seriesName: {
                   type: "text",
                   analyzer: "autocomplete",
-                  search_analyzer: "autocomplete_search"
+                  search_analyzer: "autocomplete_search",
                 },
                 slugifiedSeriesId: {
-                  type: "text"
+                  type: "text",
                 },
                 itemId: {
-                  type: "keyword"
+                  type: "keyword",
                 },
                 itemCode: {
-                  type: "keyword"
+                  type: "keyword",
                 },
                 formats: {
-                  type: "text"
+                  type: "text",
                 },
                 slugifiedId: {
-                  type: "text"
+                  type: "text",
                 },
                 from: { type: "date" },
                 to: { type: "date" },
                 slug: { type: "text" },
-                type: { type: "text" }
-              }
-            }
-          }
+                type: { type: "text" },
+              },
+            },
+          },
         })
         .then(() => {
           const chunkedOps = chunk(dataset, 3000);
@@ -223,16 +248,30 @@ mongoClient.connect(function(err) {
             console.log("subset.length", subset.length);
             promiseChain = promiseChain.then(() => {
               console.log("indexing chunk ", index);
-              return elasticClient.bulk({
-                body: subset
-              });
+              return elasticClient
+                .bulk({
+                  body: subset,
+                })
+                .catch((err) => {
+                  console.log(
+                    "🚀 ~ file: indexArchives.js ~ line 229 ~ promiseChain=promiseChain.then ~ err",
+                    err
+                  );
+                });
             });
           });
 
-          return promiseChain.then(() => {
-            console.log("All Done :)");
-            mongoClient.close();
-          });
+          return promiseChain
+            .then(() => {
+              console.log("All Done :)");
+              mongoClient.close();
+            })
+            .catch((err) => {
+              console.log(
+                "🚀 ~ file: indexArchives.js ~ line 243 ~ returnpromiseChain.then ~ err",
+                err
+              );
+            });
         });
     });
   });
